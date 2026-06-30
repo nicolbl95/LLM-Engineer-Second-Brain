@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
@@ -7,18 +7,21 @@ import {
   Handle,
   Position,
   useReactFlow,
+  addEdge,
+  reconnectEdge,
+  useNodesState,
+  useEdgesState,
   type Node,
   type Edge,
   type NodeProps,
+  type Connection,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+
 import type { BrainNode, PillarId } from "../types/brain";
 import { brainNodes, brainEdges } from "../data/graph";
 import { useLanguage } from "../context/LanguageContext";
-import {
-  getNodeColor,
-  nodeMatchesFilter,
-} from "../utils/graphHelpers";
+import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
 import { pick } from "../utils/i18n";
 
 interface BrainGraphProps {
@@ -30,32 +33,182 @@ interface BrainGraphProps {
   onFocusComplete: () => void;
 }
 
+type LocalizedText = {
+  fr: string;
+  en: string;
+};
+
+type FlowNodeData = {
+  node?: BrainNode;
+  label: string;
+  title?: LocalizedText;
+  highlighted?: boolean;
+  dimmed?: boolean;
+  isGroup?: boolean;
+};
+
+const STORAGE_KEY = "llm-engineer-second-brain-canvas";
+
+/**
+ * Root node ids that should not be deleted.
+ * This prevents the app from breaking if the user deletes the central brain node.
+ */
+const PROTECTED_NODE_IDS = new Set([
+  "llm-engineer",
+  "llm-engineer-root",
+  "root",
+]);
+
 /** Custom React Flow node — label uses active language only. */
 function BrainNodeComponent({ data, selected }: NodeProps) {
-  const node = data.node as BrainNode;
+  const flowData = data as FlowNodeData;
+  const node = flowData.node as BrainNode;
   const color = getNodeColor(node);
-  const isHighlighted = data.highlighted as boolean;
-  const label = data.label as string;
-  const dimmed = data.dimmed as boolean;
+  const isHighlighted = flowData.highlighted as boolean;
+  const label = flowData.label as string;
+  const dimmed = flowData.dimmed as boolean;
 
   return (
     <div
-      className={`brain-node brain-node--${node.type} ${selected ? "brain-node--selected" : ""} ${isHighlighted ? "brain-node--highlighted" : ""} ${dimmed ? "brain-node--dimmed" : ""}`}
+      className={`brain-node brain-node--${node.type} ${
+        selected ? "brain-node--selected" : ""
+      } ${isHighlighted ? "brain-node--highlighted" : ""} ${
+        dimmed ? "brain-node--dimmed" : ""
+      }`}
       style={{ "--node-color": color } as React.CSSProperties}
     >
       <Handle type="target" position={Position.Top} className="brain-handle" />
+
       <span className="brain-node__label">{label}</span>
+
       {node.type === "concept" && node.difficulty && (
         <span className="brain-node__diff">
           {node.difficulty.charAt(0).toUpperCase()}
         </span>
       )}
-      <Handle type="source" position={Position.Bottom} className="brain-handle" />
+
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className="brain-handle"
+      />
     </div>
   );
 }
 
-const nodeTypes = { brain: memo(BrainNodeComponent) };
+/**
+ * Simple background group shape.
+ * This works like a visual container/circle/rectangle for concepts.
+ * It is not a knowledge concept; it is only a visual grouping tool.
+ */
+function GroupNodeComponent({ data, selected }: NodeProps) {
+  const flowData = data as FlowNodeData;
+
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        border: selected
+          ? "2px dashed rgba(129, 140, 248, 0.95)"
+          : "2px dashed rgba(148, 163, 184, 0.45)",
+        background: "rgba(30, 41, 59, 0.22)",
+        borderRadius: 28,
+        boxShadow: selected
+          ? "0 0 28px rgba(129, 140, 248, 0.28)"
+          : "0 0 20px rgba(15, 23, 42, 0.15)",
+        color: "#cbd5e1",
+        fontSize: 13,
+        fontWeight: 700,
+        padding: 14,
+        pointerEvents: "all",
+      }}
+    >
+      {flowData.label}
+    </div>
+  );
+}
+
+const nodeTypes = {
+  brain: memo(BrainNodeComponent),
+  group: memo(GroupNodeComponent),
+};
+
+/** Convert static brain data into editable React Flow nodes. */
+function createInitialFlowNodes(language: "fr" | "en"): Node[] {
+  return brainNodes.map((n) => ({
+    id: n.id,
+    type: "brain",
+    position: n.position,
+    data: {
+      node: n,
+      label: pick(n.title, language),
+      highlighted: false,
+      dimmed: false,
+    },
+    selected: false,
+    draggable: true,
+    deletable: !PROTECTED_NODE_IDS.has(n.id),
+  }));
+}
+
+/** Convert static brain edges into editable React Flow edges. */
+function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
+  return brainEdges.map((e) => {
+    const sourceNode = brainNodes.find((n) => n.id === e.source);
+    const color = sourceNode ? getNodeColor(sourceNode) : "#64748b";
+
+    return {
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      label: e.label ? pick(e.label, language) : undefined,
+      animated: e.relationshipType === "uses",
+      style: { stroke: color, strokeWidth: 1.6 },
+      labelStyle: { fill: "#94a3b8", fontSize: 10 },
+      data: {
+        label: e.label,
+        relationshipType: e.relationshipType,
+      },
+      deletable: true,
+    };
+  });
+}
+
+/** Load saved canvas from localStorage if it exists. */
+function loadSavedCanvas(language: "fr" | "en") {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      return {
+        nodes: createInitialFlowNodes(language),
+        edges: createInitialFlowEdges(language),
+      };
+    }
+
+    const parsed = JSON.parse(raw) as {
+      nodes?: Node[];
+      edges?: Edge[];
+    };
+
+    if (!parsed.nodes || !parsed.edges) {
+      return {
+        nodes: createInitialFlowNodes(language),
+        edges: createInitialFlowEdges(language),
+      };
+    }
+
+    return {
+      nodes: parsed.nodes,
+      edges: parsed.edges,
+    };
+  } catch {
+    return {
+      nodes: createInitialFlowNodes(language),
+      edges: createInitialFlowEdges(language),
+    };
+  }
+}
 
 /** Pan/zoom to a node when search or project analysis selects one. */
 function GraphFocus({
@@ -69,7 +222,13 @@ function GraphFocus({
 
   useEffect(() => {
     if (!focusNodeId) return;
-    fitView({ nodes: [{ id: focusNodeId }], padding: 0.5, duration: 600 });
+
+    fitView({
+      nodes: [{ id: focusNodeId }],
+      padding: 0.5,
+      duration: 600,
+    });
+
     const timer = setTimeout(onComplete, 700);
     return () => clearTimeout(timer);
   }, [focusNodeId, fitView, onComplete]);
@@ -77,7 +236,20 @@ function GraphFocus({
   return null;
 }
 
-/** Interactive knowledge graph with pillar colors and highlighting. */
+/**
+ * Editable interactive knowledge graph.
+ *
+ * New features in this version:
+ * - edit mode
+ * - add node manually
+ * - add visual group manually
+ * - drag nodes
+ * - create edges manually
+ * - reconnect edges
+ * - delete selected nodes/edges
+ * - reset layout
+ * - real React Flow minimap
+ */
 export function BrainGraph({
   selectedNodeId,
   highlightedNodeIds,
@@ -87,6 +259,20 @@ export function BrainGraph({
   onFocusComplete,
 }: BrainGraphProps) {
   const { language } = useLanguage();
+  const { fitView, screenToFlowPosition } = useReactFlow();
+
+  const initialCanvas = useMemo(
+    () => loadSavedCanvas(language),
+    // We only want this to run once on first render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialCanvas.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialCanvas.edges);
+
+  const [editMode, setEditMode] = useState(false);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
 
   const highlightSet = useMemo(
     () => new Set(highlightedNodeIds),
@@ -95,63 +281,440 @@ export function BrainGraph({
 
   const hasHighlight = highlightedNodeIds.length > 0;
 
-  const flowNodes: Node[] = useMemo(
-    () =>
-      brainNodes
-        .filter((n) => nodeMatchesFilter(n, activePillar))
-        .map((n) => ({
-          id: n.id,
-          type: "brain",
-          position: n.position,
-          data: {
-            node: n,
-            label: pick(n.title, language),
-            highlighted: highlightSet.has(n.id),
-            dimmed: hasHighlight && !highlightSet.has(n.id) && n.id !== selectedNodeId,
-          },
-          selected: n.id === selectedNodeId,
-        })),
-    [
-      language,
-      activePillar,
-      highlightSet,
-      hasHighlight,
-      selectedNodeId,
-    ],
-  );
+  /**
+   * Keep node labels, filter visibility, selected state and highlights synced.
+   * This is what makes FR/EN switch work without showing both languages.
+   */
+  useEffect(() => {
+    setNodes((currentNodes) =>
+      currentNodes.map((flowNode) => {
+        const data = flowNode.data as FlowNodeData;
 
-  const visibleIds = useMemo(
-    () => new Set(flowNodes.map((n) => n.id)),
-    [flowNodes],
-  );
-
-  const flowEdges: Edge[] = useMemo(
-    () =>
-      brainEdges
-        .filter((e) => visibleIds.has(e.source) && visibleIds.has(e.target))
-        .map((e) => {
-          const sourceNode = brainNodes.find((n) => n.id === e.source);
-          const color = sourceNode ? getNodeColor(sourceNode) : "#64748b";
+        if (flowNode.type === "group") {
+          const title = data.title;
           return {
-            id: e.id,
-            source: e.source,
-            target: e.target,
-            label: e.label ? pick(e.label, language) : undefined,
-            animated: e.relationshipType === "uses",
-            style: { stroke: color, strokeWidth: 1.5 },
-            labelStyle: { fill: "#94a3b8", fontSize: 10 },
+            ...flowNode,
+            data: {
+              ...data,
+              label: title ? title[language] : data.label,
+            },
+            zIndex: -1,
           };
-        }),
-    [language, visibleIds],
+        }
+
+        const brainNode = data.node;
+        if (!brainNode) return flowNode;
+
+        const visible = nodeMatchesFilter(brainNode, activePillar);
+        const isHighlighted = highlightSet.has(flowNode.id);
+
+        return {
+          ...flowNode,
+          hidden: !visible,
+          selected: flowNode.id === selectedNodeId,
+          deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
+          data: {
+            ...data,
+            label: pick(brainNode.title, language),
+            highlighted: isHighlighted,
+            dimmed:
+              hasHighlight &&
+              !isHighlighted &&
+              flowNode.id !== selectedNodeId,
+          },
+        };
+      }),
+    );
+  }, [
+    language,
+    activePillar,
+    highlightSet,
+    hasHighlight,
+    selectedNodeId,
+    setNodes,
+  ]);
+
+  /** Keep edge labels synced with selected language. */
+  useEffect(() => {
+    setEdges((currentEdges) =>
+      currentEdges.map((edge) => {
+        const label = edge.data?.label as LocalizedText | undefined;
+
+        return {
+          ...edge,
+          label: label ? label[language] : edge.label,
+        };
+      }),
+    );
+  }, [language, setEdges]);
+
+  /** Persist editable canvas to localStorage. */
+  useEffect(() => {
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        nodes,
+        edges,
+      }),
+    );
+  }, [nodes, edges]);
+
+  /** Add a new concept node manually. */
+  const addManualNode = useCallback(() => {
+    const position = screenToFlowPosition({
+      x: window.innerWidth / 2,
+      y: window.innerHeight / 2,
+    });
+
+    const id = `manual-node-${Date.now()}`;
+
+    const newBrainNode = {
+      id,
+      type: "concept",
+      pillar: "llm-fundamentals",
+      difficulty: "beginner",
+      status: "to-learn",
+      position,
+      title: {
+        fr: "Nouveau concept",
+        en: "New Concept",
+      },
+      shortSummary: {
+        fr: "Concept ajouté manuellement.",
+        en: "Manually added concept.",
+      },
+      simpleExplanation: {
+        fr: "Ajoute ici une explication simple du concept.",
+        en: "Add a simple explanation of the concept here.",
+      },
+      deepExplanation: {
+        fr: "Ajoute ici une explication détaillée.",
+        en: "Add a detailed explanation here.",
+      },
+      whyItMatters: {
+        fr: "Explique pourquoi ce concept est important.",
+        en: "Explain why this concept matters.",
+      },
+      prerequisites: [],
+      relatedConcepts: [],
+      commonMistakes: [],
+      examples: [],
+      screenshots: [],
+    } as unknown as BrainNode;
+
+    const newFlowNode: Node = {
+      id,
+      type: "brain",
+      position,
+      data: {
+        node: newBrainNode,
+        label: pick(newBrainNode.title, language),
+        highlighted: true,
+        dimmed: false,
+      },
+      selected: true,
+      draggable: true,
+      deletable: true,
+    };
+
+    setNodes((currentNodes) => [...currentNodes, newFlowNode]);
+    onNodeClick(id);
+  }, [language, onNodeClick, screenToFlowPosition, setNodes]);
+
+  /** Add a visual group shape behind nodes. */
+  const addGroup = useCallback(() => {
+    const position = screenToFlowPosition({
+      x: window.innerWidth / 2 - 180,
+      y: window.innerHeight / 2 - 120,
+    });
+
+    const id = `group-${Date.now()}`;
+
+    const title = {
+      fr: "Nouveau groupe",
+      en: "New Group",
+    };
+
+    const groupNode: Node = {
+      id,
+      type: "group",
+      position,
+      data: {
+        isGroup: true,
+        title,
+        label: title[language],
+      },
+      style: {
+        width: 360,
+        height: 240,
+      },
+      draggable: true,
+      selectable: true,
+      deletable: true,
+      zIndex: -1,
+    };
+
+    setNodes((currentNodes) => [groupNode, ...currentNodes]);
+  }, [language, screenToFlowPosition, setNodes]);
+
+  /** Create a manual connection between two nodes. */
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      const label = {
+        fr: "lié à",
+        en: "related to",
+      };
+
+      const newEdge: Edge = {
+        ...connection,
+        id: `manual-edge-${Date.now()}`,
+        label: label[language],
+        animated: false,
+        style: {
+          stroke: "#818cf8",
+          strokeWidth: 1.8,
+        },
+        labelStyle: {
+          fill: "#cbd5e1",
+          fontSize: 10,
+        },
+        data: {
+          label,
+          relationshipType: "related_to",
+        },
+        deletable: true,
+      } as Edge;
+
+      setEdges((currentEdges) => addEdge(newEdge, currentEdges));
+    },
+    [language, setEdges],
+  );
+
+  /** Allow reconnecting existing edges in edit mode. */
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      setEdges((currentEdges) =>
+        reconnectEdge(oldEdge, newConnection, currentEdges),
+      );
+    },
+    [setEdges],
+  );
+
+  /** Reset positions and remove manual additions. */
+  const resetLayout = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setNodes(createInitialFlowNodes(language));
+    setEdges(createInitialFlowEdges(language));
+    setSelectedEdgeId(null);
+    window.setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
+  }, [fitView, language, setEdges, setNodes]);
+
+  /** Fit all visible nodes in view. */
+  const centerView = useCallback(() => {
+    fitView({ padding: 0.25, duration: 500 });
+  }, [fitView]);
+
+  /** Delete a selected edge from the small edge panel. */
+  const deleteSelectedEdge = useCallback(() => {
+    if (!selectedEdgeId) return;
+    setEdges((currentEdges) =>
+      currentEdges.filter((edge) => edge.id !== selectedEdgeId),
+    );
+    setSelectedEdgeId(null);
+  }, [selectedEdgeId, setEdges]);
+
+  const selectedEdge = useMemo(
+    () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
+    [edges, selectedEdgeId],
   );
 
   return (
     <div className="brain-graph">
+      <div
+        style={{
+          position: "absolute",
+          left: 18,
+          top: 18,
+          zIndex: 20,
+          display: "flex",
+          flexDirection: "column",
+          gap: 8,
+          background: "rgba(15, 23, 42, 0.86)",
+          border: "1px solid rgba(148, 163, 184, 0.18)",
+          borderRadius: 16,
+          padding: 10,
+          boxShadow: "0 16px 40px rgba(0,0,0,0.25)",
+          backdropFilter: "blur(10px)",
+        }}
+      >
+        <button
+          type="button"
+          onClick={() => setEditMode((value) => !value)}
+          style={{
+            border: editMode
+              ? "1px solid rgba(129, 140, 248, 0.9)"
+              : "1px solid rgba(148, 163, 184, 0.24)",
+            background: editMode
+              ? "rgba(99, 102, 241, 0.24)"
+              : "rgba(30, 41, 59, 0.7)",
+            color: "#e2e8f0",
+            borderRadius: 12,
+            padding: "8px 10px",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: 12,
+          }}
+        >
+          {language === "fr" ? "Mode édition" : "Edit Mode"}
+          {editMode ? " ✓" : ""}
+        </button>
+
+        <button
+          type="button"
+          onClick={addManualNode}
+          disabled={!editMode}
+          style={{
+            opacity: editMode ? 1 : 0.45,
+            border: "1px solid rgba(148, 163, 184, 0.24)",
+            background: "rgba(30, 41, 59, 0.7)",
+            color: "#e2e8f0",
+            borderRadius: 12,
+            padding: "8px 10px",
+            cursor: editMode ? "pointer" : "not-allowed",
+            fontWeight: 700,
+            fontSize: 12,
+          }}
+        >
+          {language === "fr" ? "Ajouter un nœud" : "Add Node"}
+        </button>
+
+        <button
+          type="button"
+          onClick={addGroup}
+          disabled={!editMode}
+          style={{
+            opacity: editMode ? 1 : 0.45,
+            border: "1px solid rgba(148, 163, 184, 0.24)",
+            background: "rgba(30, 41, 59, 0.7)",
+            color: "#e2e8f0",
+            borderRadius: 12,
+            padding: "8px 10px",
+            cursor: editMode ? "pointer" : "not-allowed",
+            fontWeight: 700,
+            fontSize: 12,
+          }}
+        >
+          {language === "fr" ? "Ajouter un groupe" : "Add Group"}
+        </button>
+
+        <button
+          type="button"
+          onClick={centerView}
+          style={{
+            border: "1px solid rgba(148, 163, 184, 0.24)",
+            background: "rgba(30, 41, 59, 0.7)",
+            color: "#e2e8f0",
+            borderRadius: 12,
+            padding: "8px 10px",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: 12,
+          }}
+        >
+          {language === "fr" ? "Centrer" : "Fit View"}
+        </button>
+
+        <button
+          type="button"
+          onClick={resetLayout}
+          style={{
+            border: "1px solid rgba(248, 113, 113, 0.35)",
+            background: "rgba(127, 29, 29, 0.22)",
+            color: "#fecaca",
+            borderRadius: 12,
+            padding: "8px 10px",
+            cursor: "pointer",
+            fontWeight: 700,
+            fontSize: 12,
+          }}
+        >
+          {language === "fr" ? "Réinitialiser" : "Reset"}
+        </button>
+      </div>
+
+      {selectedEdge && (
+        <div
+          style={{
+            position: "absolute",
+            right: 22,
+            bottom: 120,
+            zIndex: 25,
+            width: 260,
+            padding: 14,
+            borderRadius: 18,
+            border: "1px solid rgba(129, 140, 248, 0.35)",
+            background: "rgba(15, 23, 42, 0.92)",
+            color: "#e2e8f0",
+            boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
+          }}
+        >
+          <div style={{ fontWeight: 800, marginBottom: 8 }}>
+            {language === "fr" ? "Connexion" : "Connection"}
+          </div>
+
+          <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 12 }}>
+            {selectedEdge.label?.toString()}
+          </div>
+
+          {editMode && (
+            <button
+              type="button"
+              onClick={deleteSelectedEdge}
+              style={{
+                width: "100%",
+                border: "1px solid rgba(248, 113, 113, 0.35)",
+                background: "rgba(127, 29, 29, 0.22)",
+                color: "#fecaca",
+                borderRadius: 12,
+                padding: "8px 10px",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              {language === "fr" ? "Supprimer la connexion" : "Delete Edge"}
+            </button>
+          )}
+        </div>
+      )}
+
       <ReactFlow
-        nodes={flowNodes}
-        edges={flowEdges}
+        nodes={nodes}
+        edges={edges}
         nodeTypes={nodeTypes}
-        onNodeClick={(_, node) => onNodeClick(node.id)}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={editMode ? onConnect : undefined}
+        onReconnect={editMode ? onReconnect : undefined}
+        onNodeClick={(_, node) => {
+          setSelectedEdgeId(null);
+
+          if (node.type === "group") {
+            return;
+          }
+
+          onNodeClick(node.id);
+        }}
+        onEdgeClick={(_, edge) => {
+          setSelectedEdgeId(edge.id);
+        }}
+        onPaneClick={() => {
+          setSelectedEdgeId(null);
+        }}
+        nodesDraggable={editMode}
+        nodesConnectable={editMode}
+        edgesReconnectable={editMode}
+        elementsSelectable
+        deleteKeyCode={editMode ? "Delete" : null}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.3}
@@ -159,15 +722,33 @@ export function BrainGraph({
         proOptions={{ hideAttribution: true }}
       >
         <GraphFocus focusNodeId={focusNodeId} onComplete={onFocusComplete} />
+
         <Background gap={20} size={1} color="#1e293b" />
+
         <Controls className="brain-controls" showInteractive={false} />
+
         <MiniMap
+          position="bottom-right"
+          pannable
+          zoomable
           className="brain-minimap"
+          style={{
+            width: 220,
+            height: 140,
+            background: "#0f172a",
+            border: "1px solid rgba(148, 163, 184, 0.28)",
+            borderRadius: 16,
+            overflow: "hidden",
+            boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
+          }}
           nodeColor={(n) => {
-            const bn = (n.data as { node?: BrainNode })?.node;
+            if (n.type === "group") return "rgba(148, 163, 184, 0.4)";
+
+            const bn = (n.data as FlowNodeData)?.node;
             return bn ? getNodeColor(bn) : "#475569";
           }}
-          maskColor="rgba(15, 23, 42, 0.75)"
+          nodeStrokeColor={() => "#e2e8f0"}
+          maskColor="rgba(15, 23, 42, 0.72)"
         />
       </ReactFlow>
     </div>
