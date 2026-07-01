@@ -311,7 +311,7 @@ export function BrainGraph({
   onNodeDelete,
 }: BrainGraphProps) {
   const { language } = useLanguage();
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, getViewport, setViewport } = useReactFlow();
 
   const initialCanvas = useMemo(
     () => loadSavedCanvas(language),
@@ -432,66 +432,6 @@ export function BrainGraph({
     onNodeDelete?.(deletedNodeId);
   }, [deletedNodeId, onNodeDelete, setEdges, setNodes]);
 
-  /** Add a new concept node manually. */
-  const addManualNode = useCallback(() => {
-    if (isReadOnly) return;
-
-    const position = screenToFlowPosition({
-      x: window.innerWidth / 2,
-      y: window.innerHeight / 2,
-    });
-
-    const id = `manual-node-${Date.now()}`;
-    const defaultTitle = {
-      fr: "Nouveau nœud",
-      en: "New Node",
-    };
-    const defaultExplanation = {
-      fr: "Ajoute ici l’explication de ce concept.",
-      en: "Add the explanation of this concept here.",
-    };
-
-    const newBrainNode: BrainNode = {
-      id,
-      type: "concept",
-      pillarId: activePillar !== "all" ? activePillar : "llm-fundamentals",
-      position,
-      title: defaultTitle,
-      shortSummary: defaultExplanation,
-      simpleExplanation: defaultExplanation,
-      deepExplanation: {
-        fr: "Ajoute ici une explication détaillée.",
-        en: "Add a detailed explanation here.",
-      },
-      whyItMatters: {
-        fr: "Explique pourquoi ce concept est important.",
-        en: "Explain why this concept matters.",
-      },
-      prerequisites: { fr: [], en: [] },
-      relatedConcepts: [],
-      commonMistakes: { fr: [], en: [] },
-      examples: { fr: [], en: [] },
-    };
-
-    const newFlowNode: Node = {
-      id,
-      type: "brain",
-      position,
-      data: {
-        node: newBrainNode,
-        label: pick(newBrainNode.title, language),
-        highlighted: true,
-        dimmed: false,
-        isEditing: true,
-      },
-      selected: true,
-      draggable: true,
-      deletable: true,
-    };
-
-    setNodes((currentNodes) => [...currentNodes, newFlowNode]);
-    onNodeClick(id, newBrainNode);
-  }, [activePillar, isReadOnly, language, onNodeClick, screenToFlowPosition, setNodes]);
 
   /** Create a manual connection between two nodes. */
   const onConnect = useCallback(
@@ -585,15 +525,6 @@ export function BrainGraph({
     [setEdges],
   );
 
-  /** Reset positions and remove manual additions. */
-  const resetLayout = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
-    setNodes(createInitialFlowNodes(language));
-    setEdges(createInitialFlowEdges(language));
-    setSelectedEdgeId(null);
-    window.setTimeout(() => fitView({ padding: 0.2, duration: 500 }), 50);
-  }, [fitView, language, setEdges, setNodes]);
-
   /** Fit all visible nodes in view. */
   const centerView = useCallback(() => {
     fitView({ padding: 0.25, duration: 500 });
@@ -622,74 +553,33 @@ export function BrainGraph({
 
   return (
     <div className="brain-graph">
-      <div
-        style={{
-          position: "absolute",
-          left: 18,
-          top: 18,
-          zIndex: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 8,
-          background: "rgba(15, 23, 42, 0.86)",
-          border: "1px solid rgba(148, 163, 184, 0.18)",
-          borderRadius: 16,
-          padding: 10,
-          boxShadow: "0 16px 40px rgba(0,0,0,0.25)",
-          backdropFilter: "blur(10px)",
-        }}
-      >
-        <button
-          type="button"
-          onClick={addManualNode}
-          disabled={!isEditing}
-          style={{
-            opacity: isEditing ? 1 : 0.45,
-            border: "1px solid rgba(148, 163, 184, 0.24)",
-            background: "rgba(30, 41, 59, 0.7)",
-            color: "#e2e8f0",
-            borderRadius: 12,
-            padding: "8px 10px",
-            cursor: isEditing ? "pointer" : "not-allowed",
-            fontWeight: 700,
-            fontSize: 12,
-          }}
-        >
-          {language === "fr" ? "Ajouter un nœud" : "Add Node"}
-        </button>
-
+      <div className="brain-graph__toolbar">
         <button
           type="button"
           onClick={centerView}
-          style={{
-            border: "1px solid rgba(148, 163, 184, 0.24)",
-            background: "rgba(30, 41, 59, 0.7)",
-            color: "#e2e8f0",
-            borderRadius: 12,
-            padding: "8px 10px",
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: 12,
-          }}
+          className="compact-action-btn"
         >
-          {language === "fr" ? "Centrer la vue" : "Fit View"}
+          {language === "fr" ? "Centrer" : "Fit view"}
         </button>
-
         <button
           type="button"
-          onClick={resetLayout}
-          style={{
-            border: "1px solid rgba(248, 113, 113, 0.35)",
-            background: "rgba(127, 29, 29, 0.22)",
-            color: "#fecaca",
-            borderRadius: 12,
-            padding: "8px 10px",
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: 12,
+          onClick={async () => {
+            const viewport = await getViewport();
+            await setViewport({ x: viewport.x, y: viewport.y, zoom: Math.min(viewport.zoom + 0.18, 1.8) }, { duration: 250 });
           }}
+          className="compact-action-btn"
         >
-          {language === "fr" ? "Réinitialiser la carte" : "Reset Map"}
+          {language === "fr" ? "Zoomer" : "Zoom in"}
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            const viewport = await getViewport();
+            await setViewport({ x: viewport.x, y: viewport.y, zoom: Math.max(viewport.zoom - 0.18, 0.3) }, { duration: 250 });
+          }}
+          className="compact-action-btn"
+        >
+          {language === "fr" ? "Dézoomer" : "Zoom out"}
         </button>
       </div>
 

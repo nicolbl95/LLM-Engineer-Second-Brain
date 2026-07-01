@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { X, ImagePlus } from "lucide-react";
+import { X } from "lucide-react";
 import type { BrainNode, Difficulty, PillarId } from "../types/brain";
 import { useLanguage } from "../context/LanguageContext";
 import { ui, uiNested } from "../data/uiStrings";
@@ -215,14 +215,6 @@ export function ConceptDrawer({
           )}
         </section>
 
-        <section className="drawer__section drawer__screenshots">
-          <h3 className="drawer__section-title">{ui("screenshots", language)}</h3>
-          <p className="drawer__hint">{ui("screenshotSoon", language)}</p>
-          <button type="button" className="screenshot-btn" disabled>
-            <ImagePlus size={16} />
-            {ui("addScreenshot", language)}
-          </button>
-        </section>
 
         {!isReadOnly && (
           <div className="drawer__actions">

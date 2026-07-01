@@ -104,6 +104,7 @@ export function CommandPanel({
 
   return (
     <footer className="command-panel">
+      <div className="command-panel__resize-handle" />
       <div className="command-panel__tabs">
         {(
           [
@@ -133,7 +134,7 @@ export function CommandPanel({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={placeholder}
-            rows={mode === "addKnowledge" ? 4 : 2}
+            rows={2}
           />
           <button
             type="button"

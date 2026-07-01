@@ -28,84 +28,83 @@ export function TopBar({
   const pillars = getPillarNodes();
 
   return (
-    <header className="top-bar">
-      <div className="top-bar__brand">
+    <div className="compact-toolbar">
+      <div className="compact-toolbar__left">
         <div className="top-bar__logo" />
-        <h1 className="top-bar__title">{ui("appTitle", language)}</h1>
+        <form
+          className="top-bar__search compact"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSearchSubmit();
+          }}
+        >
+          <Search size={18} className="top-bar__search-icon" />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder={ui("searchPlaceholder", language)}
+            aria-label={ui("searchPlaceholder", language)}
+          />
+        </form>
       </div>
 
-      <form
-        className="top-bar__search"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSearchSubmit();
-        }}
-      >
-        <Search size={18} className="top-bar__search-icon" />
-        <input
-          type="search"
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          placeholder={ui("searchPlaceholder", language)}
-          aria-label={ui("searchPlaceholder", language)}
-        />
-      </form>
-
-      <div className="top-bar__filters">
-        <span className="top-bar__filters-label">{ui("filters", language)}</span>
-        <button
-          type="button"
-          className={`filter-chip ${activePillar === "all" ? "filter-chip--active" : ""}`}
-          onClick={() => onPillarChange("all")}
-        >
-          {ui("allPillars", language)}
-        </button>
-        {pillars.map((p) => (
+      <div className="compact-toolbar__right">
+        <div className="top-bar__filters compact">
           <button
-            key={p.id}
             type="button"
-            className={`filter-chip ${activePillar === p.id ? "filter-chip--active" : ""}`}
-            onClick={() => onPillarChange(p.id as PillarId)}
-            style={
-              {
-                "--chip-color": `var(--pillar-${p.id}, #6366f1)`,
-              } as React.CSSProperties
-            }
+            className={`filter-chip ${activePillar === "all" ? "filter-chip--active" : ""}`}
+            onClick={() => onPillarChange("all")}
           >
-            {t(p.title)}
+            {ui("allPillars", language)}
           </button>
-        ))}
-      </div>
-
-      <div className="top-bar__actions">
-        <button
-          type="button"
-          className={`mode-toggle ${isReadOnly ? "mode-toggle--read-only" : "mode-toggle--edit"}`}
-          onClick={() => onModeChange(!isReadOnly)}
-        >
-          {isReadOnly
-            ? language === "fr"
-              ? "Mode lecture seule"
-              : "Read-only mode"
-            : language === "fr"
-              ? "Mode édition"
-              : "Edit mode"}
-        </button>
-
-        <div className="lang-switcher" role="group" aria-label="Language">
-          {(["fr", "en"] as const).map((lang) => (
+          {pillars.map((p) => (
             <button
-              key={lang}
+              key={p.id}
               type="button"
-              className={`lang-switcher__btn ${language === lang ? "lang-switcher__btn--active" : ""}`}
-              onClick={() => setLanguage(lang)}
-              aria-pressed={language === lang}
+              className={`filter-chip ${activePillar === p.id ? "filter-chip--active" : ""}`}
+              onClick={() => onPillarChange(p.id as PillarId)}
+              style={
+                {
+                  "--chip-color": `var(--pillar-${p.id}, #6366f1)`,
+                } as React.CSSProperties
+              }
             >
-              {lang.toUpperCase()}
+              {t(p.title)}
             </button>
           ))}
         </div>
+
+        <div className="top-bar__actions compact">
+          <button
+            type="button"
+            className={`mode-toggle ${isReadOnly ? "mode-toggle--read-only" : "mode-toggle--edit"}`}
+            onClick={() => onModeChange(!isReadOnly)}
+          >
+            {isReadOnly
+              ? language === "fr"
+                ? "Lecture seule"
+                : "Read-only"
+              : language === "fr"
+                ? "Édition"
+                : "Edit"}
+          </button>
+
+          <div className="lang-switcher" role="group" aria-label="Language">
+            {(["fr", "en"] as const).map((lang) => (
+              <button
+                key={lang}
+                type="button"
+                className={`lang-switcher__btn ${language === lang ? "lang-switcher__btn--active" : ""}`}
+                onClick={() => setLanguage(lang)}
+                aria-pressed={language === lang}
+              >
+                {lang.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
-    </header>
+    </div>
   );
 }
