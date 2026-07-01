@@ -261,6 +261,22 @@ body {
   background: transparent;
 }
 
+.react-flow__pane,
+.react-flow__viewport,
+.react-flow__background,
+.react-flow__nodes,
+.react-flow__edges,
+.react-flow__selection,
+.react-flow__nodesselection {
+  background: transparent !important;
+}
+
+.react-flow__selection,
+.react-flow__nodesselection {
+  border: 1px solid rgba(129, 140, 248, 0.35) !important;
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.2) !important;
+}
+
 .brain-controls {
   background: var(--bg-panel) !important;
   border: 1px solid var(--border) !important;
@@ -345,13 +361,24 @@ body {
 }
 
 .brain-node--selected {
-  box-shadow: 0 0 0 3px var(--node-color), 0 0 20px color-mix(in srgb, var(--node-color) 50%, transparent);
+  box-shadow: 0 0 0 3px var(--node-color), 0 0 20px color-mix(in srgb, var(--node-color) 55%, transparent);
   transform: scale(1.05);
+  border-width: 3px;
 }
 
 .brain-node--highlighted {
   box-shadow: 0 0 16px color-mix(in srgb, var(--node-color) 60%, transparent);
   border-color: var(--node-color);
+}
+
+.react-flow__edge-textwrapper {
+  filter: drop-shadow(0 2px 6px rgba(2, 6, 23, 0.7));
+}
+
+.react-flow__edge-text {
+  fill: #f8fafc;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .brain-node--dimmed {
@@ -365,8 +392,103 @@ body {
 
 .brain-handle {
   opacity: 0;
-  width: 6px !important;
-  height: 6px !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  border: 1px solid rgba(255,255,255,0.8) !important;
+  pointer-events: none;
+}
+
+.brain-handle--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.brain-graph__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
+  backdrop-filter: blur(10px);
+}
+
+.edge-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edge-editor__header {
+  font-size: 0.95rem;
+  color: #e2e8f0;
+}
+
+.edge-editor__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.edge-editor__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #cbd5e1;
+}
+
+.edge-editor__input,
+.edge-editor__select {
+  width: 100%;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 10px;
+  color: #f8fafc;
+  padding: 7px 8px;
+  font-size: 0.82rem;
+}
+
+.edge-editor__color {
+  width: 100%;
+  height: 34px;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.edge-editor__value {
+  color: #94a3b8;
+  font-size: 0.82rem;
+}
+
+.edge-editor__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.edge-editor__button {
+  flex: 1;
+  border-radius: 10px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.edge-editor__button--primary {
+  background: rgba(99, 102, 241, 0.2);
+  color: #e0e7ff;
+}
+
+.edge-editor__button--danger {
+  background: rgba(248, 113, 113, 0.16);
+  color: #fecaca;
 }
 
 /* Concept drawer */

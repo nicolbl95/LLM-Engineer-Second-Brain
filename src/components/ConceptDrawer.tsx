@@ -96,16 +96,19 @@ export function ConceptDrawer({
       <div className="concept-drawer__content">
         <section className="drawer__section">
           <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Titre FR" : "Title FR"}</label>
+            <label className="drawer__label">{language === "fr" ? "Titre" : "Title"}</label>
             {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.title.fr}</p>
+              <p className="drawer__text">{currentDraft.title[language]}</p>
             ) : (
               <input
                 className="drawer__input"
-                value={currentDraft.title.fr}
+                value={currentDraft.title[language]}
                 onChange={(e) =>
                   updateDraft({
-                    title: { ...currentDraft.title, fr: e.target.value },
+                    title: {
+                      ...currentDraft.title,
+                      [language]: e.target.value,
+                    },
                   })
                 }
               />
@@ -113,71 +116,26 @@ export function ConceptDrawer({
           </div>
 
           <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Titre EN" : "Title EN"}</label>
+            <label className="drawer__label">{language === "fr" ? "Explication" : "Explanation"}</label>
             {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.title.en}</p>
-            ) : (
-              <input
-                className="drawer__input"
-                value={currentDraft.title.en}
-                onChange={(e) =>
-                  updateDraft({
-                    title: { ...currentDraft.title, en: e.target.value },
-                  })
-                }
-              />
-            )}
-          </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Explication FR" : "Explanation FR"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.simpleExplanation.fr}</p>
+              <p className="drawer__text">{currentDraft.simpleExplanation[language]}</p>
             ) : (
               <textarea
                 className="drawer__textarea"
-                value={currentDraft.simpleExplanation.fr}
+                value={currentDraft.simpleExplanation[language]}
                 onChange={(e) =>
                   updateDraft({
                     simpleExplanation: {
                       ...currentDraft.simpleExplanation,
-                      fr: e.target.value,
+                      [language]: e.target.value,
                     },
                     shortSummary: {
                       ...currentDraft.shortSummary,
-                      fr: e.target.value,
+                      [language]: e.target.value,
                     },
                     deepExplanation: {
                       ...currentDraft.deepExplanation,
-                      fr: e.target.value,
-                    },
-                  })
-                }
-              />
-            )}
-          </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Explication EN" : "Explanation EN"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.simpleExplanation.en}</p>
-            ) : (
-              <textarea
-                className="drawer__textarea"
-                value={currentDraft.simpleExplanation.en}
-                onChange={(e) =>
-                  updateDraft({
-                    simpleExplanation: {
-                      ...currentDraft.simpleExplanation,
-                      en: e.target.value,
-                    },
-                    shortSummary: {
-                      ...currentDraft.shortSummary,
-                      en: e.target.value,
-                    },
-                    deepExplanation: {
-                      ...currentDraft.deepExplanation,
-                      en: e.target.value,
+                      [language]: e.target.value,
                     },
                   })
                 }

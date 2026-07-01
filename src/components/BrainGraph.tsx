@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   ReactFlow,
   Background,
@@ -18,11 +18,12 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
-import type { BrainNode, PillarId } from "../types/brain";
+import type { BrainEdge, BrainNode, PillarId, RelationshipType } from "../types/brain";
 import { brainNodes, brainEdges } from "../data/graph";
 import { useLanguage } from "../context/LanguageContext";
 import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
 import { pick } from "../utils/i18n";
+import { EdgeEditor } from "./EdgeEditor";
 
 interface BrainGraphProps {
   selectedNodeId: string | null;
@@ -49,7 +50,7 @@ type FlowNodeData = {
   title?: LocalizedText;
   highlighted?: boolean;
   dimmed?: boolean;
-  isGroup?: boolean;
+  isEditing?: boolean;
 };
 
 const STORAGE_KEY = "llm-engineer-second-brain-canvas";
@@ -72,6 +73,15 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
   const isHighlighted = flowData.highlighted as boolean;
   const label = flowData.label as string;
   const dimmed = flowData.dimmed as boolean;
+  const isEditing = Boolean(flowData.isEditing);
+  const pointerEvents = isEditing ? "auto" : "none";
+  const handleStyle: CSSProperties = {
+    opacity: isEditing ? 1 : 0,
+    pointerEvents,
+    background: color,
+    border: "1px solid rgba(255,255,255,0.8)",
+  };
+  const handleClassName = isEditing ? "brain-handle brain-handle--visible" : "brain-handle";
 
   return (
     <div
@@ -82,7 +92,38 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
       }`}
       style={{ "--node-color": color } as React.CSSProperties}
     >
-      <Handle type="target" position={Position.Top} className="brain-handle" />
+      <Handle
+        id="top-target"
+        type="target"
+        position={Position.Top}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="top-source"
+        type="source"
+        position={Position.Top}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="right-target"
+        type="target"
+        position={Position.Right}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="right-source"
+        type="source"
+        position={Position.Right}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
 
       <span className="brain-node__label">{label}</span>
 
@@ -93,50 +134,43 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
       )}
 
       <Handle
+        id="bottom-target"
+        type="target"
+        position={Position.Bottom}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="bottom-source"
         type="source"
         position={Position.Bottom}
-        className="brain-handle"
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
       />
-    </div>
-  );
-}
-
-/**
- * Simple background group shape.
- * This works like a visual container/circle/rectangle for concepts.
- * It is not a knowledge concept; it is only a visual grouping tool.
- */
-function GroupNodeComponent({ data, selected }: NodeProps) {
-  const flowData = data as FlowNodeData;
-
-  return (
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        border: selected
-          ? "2px dashed rgba(129, 140, 248, 0.95)"
-          : "2px dashed rgba(148, 163, 184, 0.45)",
-        background: "rgba(30, 41, 59, 0.22)",
-        borderRadius: 28,
-        boxShadow: selected
-          ? "0 0 28px rgba(129, 140, 248, 0.28)"
-          : "0 0 20px rgba(15, 23, 42, 0.15)",
-        color: "#cbd5e1",
-        fontSize: 13,
-        fontWeight: 700,
-        padding: 14,
-        pointerEvents: "all",
-      }}
-    >
-      {flowData.label}
+      <Handle
+        id="left-target"
+        type="target"
+        position={Position.Left}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="left-source"
+        type="source"
+        position={Position.Left}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
     </div>
   );
 }
 
 const nodeTypes = {
   brain: memo(BrainNodeComponent),
-  group: memo(GroupNodeComponent),
 };
 
 /** Convert static brain data into editable React Flow nodes. */
@@ -169,12 +203,20 @@ function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
       target: e.target,
       label: e.label ? pick(e.label, language) : undefined,
       animated: e.relationshipType === "uses",
-      style: { stroke: color, strokeWidth: 1.6 },
+      style: {
+        stroke: e.color ?? color,
+        strokeWidth: 1.6,
+        strokeDasharray: e.lineStyle === "dashed" ? "8 6" : undefined,
+      },
       labelStyle: { fill: "#94a3b8", fontSize: 10 },
       data: {
         label: e.label,
         relationshipType: e.relationshipType,
+        color: e.color,
+        lineStyle: e.lineStyle ?? "solid",
       },
+      sourceHandle: e.sourceHandle ?? "bottom-source",
+      targetHandle: e.targetHandle ?? "top-target",
       deletable: true,
     };
   });
@@ -300,18 +342,6 @@ export function BrainGraph({
       currentNodes.map((flowNode) => {
         const data = flowNode.data as FlowNodeData;
 
-        if (flowNode.type === "group") {
-          const title = data.title;
-          return {
-            ...flowNode,
-            data: {
-              ...data,
-              label: title ? title[language] : data.label,
-            },
-            zIndex: -1,
-          };
-        }
-
         const brainNode = data.node;
         if (!brainNode) return flowNode;
 
@@ -331,7 +361,9 @@ export function BrainGraph({
               hasHighlight &&
               !isHighlighted &&
               flowNode.id !== selectedNodeId,
+            isEditing,
           },
+          draggable: isEditing && !PROTECTED_NODE_IDS.has(flowNode.id),
         };
       }),
     );
@@ -341,6 +373,7 @@ export function BrainGraph({
     highlightSet,
     hasHighlight,
     selectedNodeId,
+    isEditing,
     setNodes,
   ]);
 
@@ -449,6 +482,7 @@ export function BrainGraph({
         label: pick(newBrainNode.title, language),
         highlighted: true,
         dimmed: false,
+        isEditing: true,
       },
       selected: true,
       draggable: true,
@@ -459,42 +493,6 @@ export function BrainGraph({
     onNodeClick(id, newBrainNode);
   }, [activePillar, isReadOnly, language, onNodeClick, screenToFlowPosition, setNodes]);
 
-  /** Add a visual group shape behind nodes. */
-  const addGroup = useCallback(() => {
-    const position = screenToFlowPosition({
-      x: window.innerWidth / 2 - 180,
-      y: window.innerHeight / 2 - 120,
-    });
-
-    const id = `group-${Date.now()}`;
-
-    const title = {
-      fr: "Nouveau groupe",
-      en: "New Group",
-    };
-
-    const groupNode: Node = {
-      id,
-      type: "group",
-      position,
-      data: {
-        isGroup: true,
-        title,
-        label: title[language],
-      },
-      style: {
-        width: 360,
-        height: 240,
-      },
-      draggable: true,
-      selectable: true,
-      deletable: true,
-      zIndex: -1,
-    };
-
-    setNodes((currentNodes) => [groupNode, ...currentNodes]);
-  }, [language, screenToFlowPosition, setNodes]);
-
   /** Create a manual connection between two nodes. */
   const onConnect = useCallback(
     (connection: Connection) => {
@@ -502,6 +500,7 @@ export function BrainGraph({
         fr: "lié à",
         en: "related to",
       };
+      const color = "#818cf8";
 
       const newEdge: Edge = {
         ...connection,
@@ -509,8 +508,9 @@ export function BrainGraph({
         label: label[language],
         animated: false,
         style: {
-          stroke: "#818cf8",
+          stroke: color,
           strokeWidth: 1.8,
+          strokeDasharray: undefined,
         },
         labelStyle: {
           fill: "#cbd5e1",
@@ -518,8 +518,12 @@ export function BrainGraph({
         },
         data: {
           label,
-          relationshipType: "related_to",
+          relationshipType: "related",
+          color,
+          lineStyle: "solid",
         },
+        sourceHandle: connection.sourceHandle ?? "bottom-source",
+        targetHandle: connection.targetHandle ?? "top-target",
         deletable: true,
       } as Edge;
 
@@ -538,6 +542,49 @@ export function BrainGraph({
     [setEdges],
   );
 
+  const updateEdgeInGraph = useCallback(
+    (updatedEdge: BrainEdge) => {
+      setEdges((currentEdges) =>
+        currentEdges.map((edge) => {
+          if (edge.id !== updatedEdge.id) return edge;
+
+          const nextLabel = updatedEdge.label ? updatedEdge.label[language] : undefined;
+          return {
+            ...edge,
+            label: nextLabel,
+            style: {
+              ...(edge.style ?? {}),
+              stroke: updatedEdge.color ?? edge.style?.stroke ?? "#818cf8",
+              strokeDasharray: updatedEdge.lineStyle === "dashed" ? "8 6" : undefined,
+            },
+            labelStyle: {
+              ...(edge.labelStyle ?? {}),
+              fill: "#cbd5e1",
+            },
+            data: {
+              ...(edge.data ?? {}),
+              label: updatedEdge.label,
+              relationshipType: updatedEdge.relationshipType,
+              color: updatedEdge.color,
+              lineStyle: updatedEdge.lineStyle ?? "solid",
+            },
+            sourceHandle: updatedEdge.sourceHandle ?? edge.sourceHandle ?? "bottom-source",
+            targetHandle: updatedEdge.targetHandle ?? edge.targetHandle ?? "top-target",
+          };
+        }),
+      );
+    },
+    [language, setEdges],
+  );
+
+  const deleteEdgeFromGraph = useCallback(
+    (edgeId: string) => {
+      setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== edgeId));
+      setSelectedEdgeId(null);
+    },
+    [setEdges],
+  );
+
   /** Reset positions and remove manual additions. */
   const resetLayout = useCallback(() => {
     localStorage.removeItem(STORAGE_KEY);
@@ -552,19 +599,26 @@ export function BrainGraph({
     fitView({ padding: 0.25, duration: 500 });
   }, [fitView]);
 
-  /** Delete a selected edge from the small edge panel. */
-  const deleteSelectedEdge = useCallback(() => {
-    if (!selectedEdgeId) return;
-    setEdges((currentEdges) =>
-      currentEdges.filter((edge) => edge.id !== selectedEdgeId),
-    );
-    setSelectedEdgeId(null);
-  }, [selectedEdgeId, setEdges]);
-
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId],
   );
+
+  const selectedBrainEdge = useMemo<BrainEdge | null>(() => {
+    if (!selectedEdge) return null;
+
+    return {
+      id: selectedEdge.id,
+      source: selectedEdge.source,
+      target: selectedEdge.target,
+      relationshipType: (selectedEdge.data?.relationshipType as RelationshipType | undefined) ?? "related",
+      label: selectedEdge.data?.label as { fr: string; en: string } | undefined,
+      color: (selectedEdge.style as { stroke?: string } | undefined)?.stroke ?? (selectedEdge.data?.color as string | undefined),
+      lineStyle: (selectedEdge.data?.lineStyle as "solid" | "dashed" | undefined) ?? "solid",
+      sourceHandle: selectedEdge.sourceHandle ?? undefined,
+      targetHandle: selectedEdge.targetHandle ?? undefined,
+    };
+  }, [selectedEdge]);
 
   return (
     <div className="brain-graph">
@@ -606,25 +660,6 @@ export function BrainGraph({
 
         <button
           type="button"
-          onClick={addGroup}
-          disabled={!isEditing}
-          style={{
-            opacity: isEditing ? 1 : 0.45,
-            border: "1px solid rgba(148, 163, 184, 0.24)",
-            background: "rgba(30, 41, 59, 0.7)",
-            color: "#e2e8f0",
-            borderRadius: 12,
-            padding: "8px 10px",
-            cursor: isEditing ? "pointer" : "not-allowed",
-            fontWeight: 700,
-            fontSize: 12,
-          }}
-        >
-          {language === "fr" ? "Ajouter un groupe" : "Add Group"}
-        </button>
-
-        <button
-          type="button"
           onClick={centerView}
           style={{
             border: "1px solid rgba(148, 163, 184, 0.24)",
@@ -637,7 +672,7 @@ export function BrainGraph({
             fontSize: 12,
           }}
         >
-          {language === "fr" ? "Centrer" : "Fit View"}
+          {language === "fr" ? "Centrer la vue" : "Fit View"}
         </button>
 
         <button
@@ -665,7 +700,7 @@ export function BrainGraph({
             right: 22,
             bottom: 120,
             zIndex: 25,
-            width: 260,
+            width: 270,
             padding: 14,
             borderRadius: 18,
             border: "1px solid rgba(129, 140, 248, 0.35)",
@@ -674,32 +709,14 @@ export function BrainGraph({
             boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
           }}
         >
-          <div style={{ fontWeight: 800, marginBottom: 8 }}>
-            {language === "fr" ? "Connexion" : "Connection"}
-          </div>
-
-          <div style={{ color: "#94a3b8", fontSize: 12, marginBottom: 12 }}>
-            {selectedEdge.label?.toString()}
-          </div>
-
-          {isEditing && (
-            <button
-              type="button"
-              onClick={deleteSelectedEdge}
-              style={{
-                width: "100%",
-                border: "1px solid rgba(248, 113, 113, 0.35)",
-                background: "rgba(127, 29, 29, 0.22)",
-                color: "#fecaca",
-                borderRadius: 12,
-                padding: "8px 10px",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-            >
-              {language === "fr" ? "Supprimer la connexion" : "Delete Edge"}
-            </button>
-          )}
+          <EdgeEditor
+            edge={selectedBrainEdge}
+            isReadOnly={isReadOnly}
+            onChange={(updatedEdge) => {
+              updateEdgeInGraph(updatedEdge);
+            }}
+            onDelete={(edgeId) => deleteEdgeFromGraph(edgeId)}
+          />
         </div>
       )}
 
@@ -713,10 +730,6 @@ export function BrainGraph({
         onReconnect={isEditing ? onReconnect : undefined}
         onNodeClick={(_, node) => {
           setSelectedEdgeId(null);
-
-          if (node.type === "group") {
-            return;
-          }
 
           const flowNode = nodes.find((candidate) => candidate.id === node.id);
           const selectedNode = (flowNode?.data as FlowNodeData | undefined)?.node ?? null;
@@ -746,27 +759,25 @@ export function BrainGraph({
         <Controls className="brain-controls" showInteractive={false} />
 
         <MiniMap
-          position="bottom-right"
+          position="bottom-left"
           pannable
           zoomable
           className="brain-minimap"
           style={{
             width: 220,
             height: 140,
-            background: "#0f172a",
-            border: "1px solid rgba(148, 163, 184, 0.28)",
+            background: "rgba(8, 15, 30, 0.96)",
+            border: "1px solid rgba(129, 140, 248, 0.35)",
             borderRadius: 16,
             overflow: "hidden",
             boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
           }}
           nodeColor={(n) => {
-            if (n.type === "group") return "rgba(148, 163, 184, 0.4)";
-
             const bn = (n.data as FlowNodeData)?.node;
             return bn ? getNodeColor(bn) : "#475569";
           }}
           nodeStrokeColor={() => "#e2e8f0"}
-          maskColor="rgba(15, 23, 42, 0.72)"
+          maskColor="rgba(2, 6, 23, 0.78)"
         />
       </ReactFlow>
     </div>

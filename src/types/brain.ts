@@ -65,8 +65,12 @@ export interface BrainEdge {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
   relationshipType: RelationshipType;
   label?: LocalizedText;
+  color?: string;
+  lineStyle?: "solid" | "dashed";
 }
 
 /** Result of searching / asking the brain. */
