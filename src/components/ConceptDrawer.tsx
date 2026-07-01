@@ -24,19 +24,34 @@ export function ConceptDrawer({
   onDelete,
 }: ConceptDrawerProps) {
   const { language, t } = useLanguage();
-  const [draft, setDraft] = useState<BrainNode | null>(null);
+  const [draft, setDraft] = useState<BrainNode | null>(node);
+
+  const fallbackNode = useMemo<BrainNode>(() => ({
+    id: "",
+    type: "concept",
+    position: { x: 0, y: 0 },
+    title: { fr: "", en: "" },
+    shortSummary: { fr: "", en: "" },
+    simpleExplanation: { fr: "", en: "" },
+    deepExplanation: { fr: "", en: "" },
+    whyItMatters: { fr: "", en: "" },
+    prerequisites: { fr: [], en: [] },
+    relatedConcepts: [],
+    commonMistakes: { fr: [], en: [] },
+    examples: { fr: [], en: [] },
+  }), []);
 
   const isProtected = useMemo(() => {
     return node ? ["llm-engineer", "llm-engineer-root", "root"].includes(node.id) : false;
   }, [node]);
 
-  const color = getNodeColor(node ?? { id: "", type: "concept", position: { x: 0, y: 0 }, title: { fr: "", en: "" }, shortSummary: { fr: "", en: "" }, simpleExplanation: { fr: "", en: "" }, deepExplanation: { fr: "", en: "" }, whyItMatters: { fr: "", en: "" }, prerequisites: { fr: [], en: [] }, relatedConcepts: [], commonMistakes: { fr: [], en: [] }, examples: { fr: [], en: [] } });
-
-  if (!node) return null;
+  const color = getNodeColor(node ?? fallbackNode);
 
   useEffect(() => {
     setDraft(node);
   }, [node]);
+
+  if (!node) return null;
 
   const currentDraft = draft ?? node;
 
