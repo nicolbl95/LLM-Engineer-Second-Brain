@@ -27,6 +27,23 @@ function AppContent() {
     useState<ProjectAnalysis | null>(null);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
   const [isReadOnly, setIsReadOnly] = useState(true);
+  const [updatedNode, setUpdatedNode] = useState<BrainNode | null>(null);
+  const [deletedNodeId, setDeletedNodeId] = useState<string | null>(null);
+
+  const handleNodeUpdate = useCallback((updatedNode: BrainNode) => {
+    setSelectedNode(updatedNode);
+    setSelectedNodeId(updatedNode.id);
+    setHighlightedNodeIds([updatedNode.id]);
+    setUpdatedNode(updatedNode);
+  }, []);
+
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    setSelectedNodeId(null);
+    setSelectedNode(null);
+    setHighlightedNodeIds([]);
+    setFocusNodeId(null);
+    setDeletedNodeId(nodeId);
+  }, []);
 
   /** Select a node, open drawer, optionally highlight related nodes. */
   const selectNode = useCallback(
@@ -104,17 +121,24 @@ function AppContent() {
             focusNodeId={focusNodeId}
             onFocusComplete={() => setFocusNodeId(null)}
             isReadOnly={isReadOnly}
+            updatedNode={updatedNode}
+            deletedNodeId={deletedNodeId}
+            onNodeUpdate={handleNodeUpdate}
+            onNodeDelete={handleNodeDelete}
           />
         </ReactFlowProvider>
 
         <ConceptDrawer
           node={selectedNode}
+          isReadOnly={isReadOnly}
           onClose={() => {
             setSelectedNodeId(null);
             setSelectedNode(null);
             setHighlightedNodeIds([]);
           }}
           onRelatedClick={(id) => selectNode(id)}
+          onSave={handleNodeUpdate}
+          onDelete={handleNodeDelete}
         />
       </main>
 

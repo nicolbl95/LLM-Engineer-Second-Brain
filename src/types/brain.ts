@@ -41,6 +41,8 @@ export interface BrainNode {
   type: BrainNodeType;
   /** Parent pillar for concept nodes. */
   pillarId?: PillarId;
+  /** Optional override color for the node. */
+  color?: string;
   position: { x: number; y: number };
   title: LocalizedText;
   /** Human-readable pillar name (concepts only). */

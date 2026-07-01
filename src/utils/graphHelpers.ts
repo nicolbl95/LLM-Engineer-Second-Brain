@@ -23,6 +23,7 @@ export const CENTRAL_COLOR = "#e2e8f0";
 
 /** Resolve display color for any node. */
 export function getNodeColor(node: BrainNode): string {
+  if (node.color) return node.color;
   if (node.type === "central") return CENTRAL_COLOR;
   if (node.pillarId) return PILLAR_COLORS[node.pillarId];
   return "#94a3b8";

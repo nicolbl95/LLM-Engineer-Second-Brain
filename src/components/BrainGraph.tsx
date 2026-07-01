@@ -32,6 +32,10 @@ interface BrainGraphProps {
   focusNodeId: string | null;
   onFocusComplete: () => void;
   isReadOnly: boolean;
+  updatedNode?: BrainNode | null;
+  deletedNodeId?: string | null;
+  onNodeUpdate?: (node: BrainNode) => void;
+  onNodeDelete?: (nodeId: string) => void;
 }
 
 type LocalizedText = {
@@ -259,6 +263,10 @@ export function BrainGraph({
   focusNodeId,
   onFocusComplete,
   isReadOnly,
+  updatedNode,
+  deletedNodeId,
+  onNodeUpdate,
+  onNodeDelete,
 }: BrainGraphProps) {
   const { language } = useLanguage();
   const { fitView, screenToFlowPosition } = useReactFlow();
@@ -360,6 +368,36 @@ export function BrainGraph({
       }),
     );
   }, [nodes, edges]);
+
+  useEffect(() => {
+    if (!updatedNode) return;
+
+    setNodes((currentNodes) =>
+      currentNodes.map((flowNode) => {
+        if (flowNode.id !== updatedNode.id) return flowNode;
+
+        return {
+          ...flowNode,
+          data: {
+            ...flowNode.data,
+            node: updatedNode,
+            label: pick(updatedNode.title, language),
+            highlighted: true,
+            dimmed: false,
+          },
+        };
+      }),
+    );
+    onNodeUpdate?.(updatedNode);
+  }, [language, onNodeUpdate, setNodes, updatedNode]);
+
+  useEffect(() => {
+    if (!deletedNodeId) return;
+
+    setNodes((currentNodes) => currentNodes.filter((flowNode) => flowNode.id !== deletedNodeId));
+    setEdges((currentEdges) => currentEdges.filter((edge) => edge.source !== deletedNodeId && edge.target !== deletedNodeId));
+    onNodeDelete?.(deletedNodeId);
+  }, [deletedNodeId, onNodeDelete, setEdges, setNodes]);
 
   /** Add a new concept node manually. */
   const addManualNode = useCallback(() => {

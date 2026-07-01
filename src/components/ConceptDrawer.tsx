@@ -1,49 +1,62 @@
+import { useEffect, useMemo, useState } from "react";
 import { X, ImagePlus } from "lucide-react";
-import type { BrainNode } from "../types/brain";
+import type { BrainNode, Difficulty, PillarId } from "../types/brain";
 import { useLanguage } from "../context/LanguageContext";
 import { ui, uiNested } from "../data/uiStrings";
-import { getNodeColor, getNodeById } from "../utils/graphHelpers";
-import { pickList } from "../utils/i18n";
+import { getNodeColor } from "../utils/graphHelpers";
+import { pillarMeta } from "../data/graph";
 
 interface ConceptDrawerProps {
   node: BrainNode | null;
+  isReadOnly: boolean;
   onClose: () => void;
   onRelatedClick: (nodeId: string) => void;
+  onSave: (node: BrainNode) => void;
+  onDelete: (nodeId: string) => void;
 }
 
 /** Right-side panel showing full concept details in the active language. */
 export function ConceptDrawer({
   node,
+  isReadOnly,
   onClose,
-  onRelatedClick,
+  onSave,
+  onDelete,
 }: ConceptDrawerProps) {
   const { language, t } = useLanguage();
+  const [draft, setDraft] = useState<BrainNode | null>(null);
+
+  const isProtected = useMemo(() => {
+    return node ? ["llm-engineer", "llm-engineer-root", "root"].includes(node.id) : false;
+  }, [node]);
+
+  const color = getNodeColor(node ?? { id: "", type: "concept", position: { x: 0, y: 0 }, title: { fr: "", en: "" }, shortSummary: { fr: "", en: "" }, simpleExplanation: { fr: "", en: "" }, deepExplanation: { fr: "", en: "" }, whyItMatters: { fr: "", en: "" }, prerequisites: { fr: [], en: [] }, relatedConcepts: [], commonMistakes: { fr: [], en: [] }, examples: { fr: [], en: [] } });
 
   if (!node) return null;
 
-  const color = getNodeColor(node);
+  useEffect(() => {
+    setDraft(node);
+  }, [node]);
 
-  const renderList = (items: string[], emptyFallback?: string) => {
-    if (items.length === 0) {
-      return emptyFallback ? (
-        <p className="drawer__empty">{emptyFallback}</p>
-      ) : null;
-    }
-    return (
-      <ul className="drawer__list">
-        {items.map((item) => (
-          <li key={item}>{item}</li>
-        ))}
-      </ul>
-    );
+  const currentDraft = draft ?? node;
+
+  const updateDraft = (updates: Partial<BrainNode>) => {
+    setDraft((prev) => (prev ? { ...prev, ...updates } : prev));
   };
 
-  const section = (title: string, content: React.ReactNode) => (
-    <section className="drawer__section">
-      <h3 className="drawer__section-title">{title}</h3>
-      {content}
-    </section>
-  );
+  const handleSave = () => {
+    if (!draft) return;
+    onSave(draft);
+  };
+
+  const handleCancel = () => {
+    setDraft(node);
+  };
+
+  const handleDelete = () => {
+    if (isProtected) return;
+    onDelete(node.id);
+  };
 
   return (
     <aside
@@ -53,9 +66,9 @@ export function ConceptDrawer({
       <div className="concept-drawer__header">
         <div>
           <span className="concept-drawer__badge">
-            {uiNested("nodeTypes", node.type, language)}
+            {uiNested("nodeTypes", currentDraft.type, language)}
           </span>
-          <h2 className="concept-drawer__title">{t(node.title)}</h2>
+          <h2 className="concept-drawer__title">{t(currentDraft.title)}</h2>
         </div>
         <button
           type="button"
@@ -68,85 +81,189 @@ export function ConceptDrawer({
       </div>
 
       <div className="concept-drawer__meta">
-        {node.pillar && (
+        {currentDraft.pillar && (
           <span className="meta-tag">
-            {ui("pillar", language)}: {t(node.pillar)}
+            {ui("pillar", language)}: {t(currentDraft.pillar)}
           </span>
         )}
-        {node.difficulty && (
+        {currentDraft.difficulty && (
           <span className="meta-tag">
-            {ui("difficulty", language)}:{" "}
-            {uiNested("difficulties", node.difficulty, language)}
-          </span>
-        )}
-        {node.status && (
-          <span className="meta-tag">
-            {ui("status", language)}:{" "}
-            {uiNested("statuses", node.status, language)}
+            {ui("difficulty", language)}: {uiNested("difficulties", currentDraft.difficulty, language)}
           </span>
         )}
       </div>
 
       <div className="concept-drawer__content">
-        {section(
-          ui("shortSummary", language),
-          <p className="drawer__text">{t(node.shortSummary)}</p>,
-        )}
-        {section(
-          ui("simpleExplanation", language),
-          <p className="drawer__text">{t(node.simpleExplanation)}</p>,
-        )}
-        {section(
-          ui("deepExplanation", language),
-          <p className="drawer__text">{t(node.deepExplanation)}</p>,
-        )}
-        {section(
-          ui("whyItMatters", language),
-          <p className="drawer__text">{t(node.whyItMatters)}</p>,
-        )}
-        {section(
-          ui("prerequisites", language),
-          renderList(pickList(node.prerequisites, language)),
-        )}
-        {section(
-          ui("relatedConcepts", language),
-          <div className="drawer__related">
-            {node.relatedConcepts.map((id) => {
-              const rel = getNodeById(id);
-              if (!rel) return null;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  className="related-chip"
-                  onClick={() => onRelatedClick(id)}
-                >
-                  {t(rel.title)}
-                </button>
-              );
-            })}
-          </div>,
-        )}
-        {section(
-          ui("commonMistakes", language),
-          renderList(pickList(node.commonMistakes, language)),
-        )}
-        {section(
-          ui("examples", language),
-          renderList(pickList(node.examples, language)),
-        )}
+        <section className="drawer__section">
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Titre FR" : "Title FR"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.title.fr}</p>
+            ) : (
+              <input
+                className="drawer__input"
+                value={currentDraft.title.fr}
+                onChange={(e) =>
+                  updateDraft({
+                    title: { ...currentDraft.title, fr: e.target.value },
+                  })
+                }
+              />
+            )}
+          </div>
 
-        {/* Screenshot placeholder — manual attachment only, no AI/OCR */}
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Titre EN" : "Title EN"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.title.en}</p>
+            ) : (
+              <input
+                className="drawer__input"
+                value={currentDraft.title.en}
+                onChange={(e) =>
+                  updateDraft({
+                    title: { ...currentDraft.title, en: e.target.value },
+                  })
+                }
+              />
+            )}
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Explication FR" : "Explanation FR"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.simpleExplanation.fr}</p>
+            ) : (
+              <textarea
+                className="drawer__textarea"
+                value={currentDraft.simpleExplanation.fr}
+                onChange={(e) =>
+                  updateDraft({
+                    simpleExplanation: {
+                      ...currentDraft.simpleExplanation,
+                      fr: e.target.value,
+                    },
+                    shortSummary: {
+                      ...currentDraft.shortSummary,
+                      fr: e.target.value,
+                    },
+                    deepExplanation: {
+                      ...currentDraft.deepExplanation,
+                      fr: e.target.value,
+                    },
+                  })
+                }
+              />
+            )}
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Explication EN" : "Explanation EN"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.simpleExplanation.en}</p>
+            ) : (
+              <textarea
+                className="drawer__textarea"
+                value={currentDraft.simpleExplanation.en}
+                onChange={(e) =>
+                  updateDraft({
+                    simpleExplanation: {
+                      ...currentDraft.simpleExplanation,
+                      en: e.target.value,
+                    },
+                    shortSummary: {
+                      ...currentDraft.shortSummary,
+                      en: e.target.value,
+                    },
+                    deepExplanation: {
+                      ...currentDraft.deepExplanation,
+                      en: e.target.value,
+                    },
+                  })
+                }
+              />
+            )}
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Couleur du nœud" : "Node color"}</label>
+            {isReadOnly ? (
+              <div className="drawer__color-preview" style={{ backgroundColor: currentDraft.color ?? color }} />
+            ) : (
+              <input
+                type="color"
+                className="drawer__color-input"
+                value={currentDraft.color ?? color}
+                onChange={(e) => updateDraft({ color: e.target.value })}
+              />
+            )}
+          </div>
+
+          {currentDraft.pillarId && (
+            <div className="drawer__field-row">
+              <label className="drawer__label">{ui("pillar", language)}</label>
+              {isReadOnly ? (
+                <p className="drawer__text">{t(currentDraft.pillar ?? { fr: currentDraft.pillarId, en: currentDraft.pillarId })}</p>
+              ) : (
+                <select
+                  className="drawer__select"
+                  value={currentDraft.pillarId}
+                  onChange={(e) => updateDraft({ pillarId: e.target.value as PillarId })}
+                >
+                  {Object.entries(pillarMeta).map(([id, meta]) => (
+                    <option key={id} value={id}>
+                      {meta.title[language]}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+
+          {currentDraft.difficulty && (
+            <div className="drawer__field-row">
+              <label className="drawer__label">{ui("difficulty", language)}</label>
+              {isReadOnly ? (
+                <p className="drawer__text">{uiNested("difficulties", currentDraft.difficulty, language)}</p>
+              ) : (
+                <select
+                  className="drawer__select"
+                  value={currentDraft.difficulty}
+                  onChange={(e) => updateDraft({ difficulty: e.target.value as Difficulty })}
+                >
+                  {(["beginner", "intermediate", "advanced"] as Difficulty[]).map((value) => (
+                    <option key={value} value={value}>
+                      {uiNested("difficulties", value, language)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
+        </section>
+
         <section className="drawer__section drawer__screenshots">
-          <h3 className="drawer__section-title">
-            {ui("screenshots", language)}
-          </h3>
+          <h3 className="drawer__section-title">{ui("screenshots", language)}</h3>
           <p className="drawer__hint">{ui("screenshotSoon", language)}</p>
           <button type="button" className="screenshot-btn" disabled>
             <ImagePlus size={16} />
             {ui("addScreenshot", language)}
           </button>
         </section>
+
+        {!isReadOnly && (
+          <div className="drawer__actions">
+            <button type="button" className="drawer__action-btn drawer__action-btn--primary" onClick={handleSave}>
+              {language === "fr" ? "Enregistrer" : "Save"}
+            </button>
+            <button type="button" className="drawer__action-btn" onClick={handleCancel}>
+              {language === "fr" ? "Annuler" : "Cancel"}
+            </button>
+            <button type="button" className={`drawer__action-btn drawer__action-btn--danger ${isProtected ? "is-disabled" : ""}`} onClick={handleDelete} disabled={isProtected}>
+              {language === "fr" ? "Supprimer le nœud" : "Delete Node"}
+            </button>
+          </div>
+        )}
       </div>
     </aside>
   );
