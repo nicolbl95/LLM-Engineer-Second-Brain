@@ -77,6 +77,16 @@ export function EdgeEditor({ edge, isReadOnly, onChange, onDelete }: EdgeEditorP
             </label>
 
             <label className="edge-editor__field">
+              <span>{language === "fr" ? "Couleur du texte" : "Text color"}</span>
+              <input
+                type="color"
+                className="edge-editor__color"
+                value={currentDraft.labelColor ?? "#ffffff"}
+                onChange={(e) => updateDraft({ labelColor: e.target.value })}
+              />
+            </label>
+
+            <label className="edge-editor__field">
               <span>{language === "fr" ? "Style de ligne" : "Line style"}</span>
               <select
                 className="edge-editor__select"

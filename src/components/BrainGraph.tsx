@@ -30,6 +30,7 @@ interface BrainGraphProps {
   highlightedNodeIds: string[];
   activePillar: PillarId | "all";
   onNodeClick: (nodeId: string, nodeData?: BrainNode | null) => void;
+  onClearSelection: () => void;
   focusNodeId: string | null;
   onFocusComplete: () => void;
   isReadOnly: boolean;
@@ -47,7 +48,11 @@ type LocalizedText = {
 type FlowNodeData = {
   node?: BrainNode;
   label: string;
-  title?: LocalizedText;
+  miniExplanation?: string;
+  nodeWidth?: number;
+  nodeHeight?: number;
+  miniExplanationWidth?: number;
+  miniExplanationHeight?: number;
   highlighted?: boolean;
   dimmed?: boolean;
   isEditing?: boolean;
@@ -82,6 +87,11 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
     border: "1px solid rgba(255,255,255,0.8)",
   };
   const handleClassName = isEditing ? "brain-handle brain-handle--visible" : "brain-handle";
+  const miniText = flowData.miniExplanation as string | undefined;
+  const miniWidth = flowData.miniExplanationWidth ?? 180;
+  const miniHeight = flowData.miniExplanationHeight ?? 60;
+  const nodeWidth = flowData.nodeWidth ?? 180;
+  const nodeHeight = flowData.nodeHeight ?? 64;
 
   return (
     <div
@@ -90,7 +100,15 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
       } ${isHighlighted ? "brain-node--highlighted" : ""} ${
         dimmed ? "brain-node--dimmed" : ""
       }`}
-      style={{ "--node-color": color } as React.CSSProperties}
+      style={
+        {
+          "--node-color": color,
+          "--node-width": `${nodeWidth}px`,
+          "--node-height": `${nodeHeight}px`,
+          "--mini-width": `${miniWidth}px`,
+          "--mini-height": `${miniHeight}px`,
+        } as React.CSSProperties
+      }
     >
       <Handle
         id="top-target"
@@ -126,6 +144,10 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
       />
 
       <span className="brain-node__label">{label}</span>
+
+      {miniText && (
+        <div className="brain-node__mini">{miniText}</div>
+      )}
 
       {node.type === "concept" && node.difficulty && (
         <span className="brain-node__diff">
@@ -182,6 +204,11 @@ function createInitialFlowNodes(language: "fr" | "en"): Node[] {
     data: {
       node: n,
       label: pick(n.title, language),
+      miniExplanation: n.miniExplanation ? n.miniExplanation[language] : "",
+      nodeWidth: n.nodeWidth ?? 180,
+      nodeHeight: n.nodeHeight ?? 64,
+      miniExplanationWidth: n.miniExplanationWidth ?? 180,
+      miniExplanationHeight: n.miniExplanationHeight ?? 60,
       highlighted: false,
       dimmed: false,
     },
@@ -208,12 +235,15 @@ function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
         strokeWidth: 1.6,
         strokeDasharray: e.lineStyle === "dashed" ? "8 6" : undefined,
       },
-      labelStyle: { fill: "#94a3b8", fontSize: 10 },
+      labelStyle: { fill: e.labelColor ?? "#ffffff", fontSize: 11, textShadow: "0 0 8px rgba(255,255,255,0.2)" },
+      labelBgStyle: { fill: "transparent" },
+      labelBgPadding: [0, 0],
       data: {
         label: e.label,
         relationshipType: e.relationshipType,
         color: e.color,
         lineStyle: e.lineStyle ?? "solid",
+        labelColor: e.labelColor ?? "#ffffff",
       },
       sourceHandle: e.sourceHandle ?? "bottom-source",
       targetHandle: e.targetHandle ?? "top-target",
@@ -302,6 +332,7 @@ export function BrainGraph({
   highlightedNodeIds,
   activePillar,
   onNodeClick,
+  onClearSelection,
   focusNodeId,
   onFocusComplete,
   isReadOnly,
@@ -311,7 +342,7 @@ export function BrainGraph({
   onNodeDelete,
 }: BrainGraphProps) {
   const { language } = useLanguage();
-  const { fitView, getViewport, setViewport } = useReactFlow();
+  const { fitView, zoomIn, zoomOut } = useReactFlow();
 
   const initialCanvas = useMemo(
     () => loadSavedCanvas(language),
@@ -382,10 +413,16 @@ export function BrainGraph({
     setEdges((currentEdges) =>
       currentEdges.map((edge) => {
         const label = edge.data?.label as LocalizedText | undefined;
+        const labelColor = edge.data?.labelColor as string | undefined;
 
         return {
           ...edge,
           label: label ? label[language] : edge.label,
+          labelStyle: {
+            ...(edge.labelStyle ?? {}),
+            fill: labelColor ?? "#ffffff",
+            textShadow: "0 0 10px rgba(255,255,255,0.18)",
+          },
         };
       }),
     );
@@ -453,14 +490,18 @@ export function BrainGraph({
           strokeDasharray: undefined,
         },
         labelStyle: {
-          fill: "#cbd5e1",
+          fill: "#ffffff",
           fontSize: 10,
+          textShadow: "0 0 8px rgba(255,255,255,0.2)",
         },
+        labelBgStyle: { fill: "transparent" },
+        labelBgPadding: [0, 0],
         data: {
           label,
           relationshipType: "related",
           color,
           lineStyle: "solid",
+          labelColor: "#ffffff",
         },
         sourceHandle: connection.sourceHandle ?? "bottom-source",
         targetHandle: connection.targetHandle ?? "top-target",
@@ -499,14 +540,20 @@ export function BrainGraph({
             },
             labelStyle: {
               ...(edge.labelStyle ?? {}),
-              fill: "#cbd5e1",
+              fill: updatedEdge.labelColor ?? (edge.data as any)?.labelColor ?? "#ffffff",
+              textShadow: "0 0 8px rgba(255,255,255,0.2)",
             },
+            labelBgStyle: {
+              fill: "transparent",
+            },
+            labelBgPadding: [0, 0],
             data: {
               ...(edge.data ?? {}),
               label: updatedEdge.label,
               relationshipType: updatedEdge.relationshipType,
               color: updatedEdge.color,
               lineStyle: updatedEdge.lineStyle ?? "solid",
+              labelColor: updatedEdge.labelColor ?? (edge.data as any)?.labelColor ?? "#ffffff",
             },
             sourceHandle: updatedEdge.sourceHandle ?? edge.sourceHandle ?? "bottom-source",
             targetHandle: updatedEdge.targetHandle ?? edge.targetHandle ?? "top-target",
@@ -553,33 +600,29 @@ export function BrainGraph({
 
   return (
     <div className="brain-graph">
-      <div className="brain-graph__toolbar">
+      <div className="brain-graph__zoom-panel">
+        <button
+          type="button"
+          onClick={() => zoomIn()}
+          className="zoom-button"
+          aria-label={language === "fr" ? "Zoomer" : "Zoom in"}
+        >
+          +
+        </button>
+        <button
+          type="button"
+          onClick={() => zoomOut()}
+          className="zoom-button"
+          aria-label={language === "fr" ? "Dézoomer" : "Zoom out"}
+        >
+          −
+        </button>
         <button
           type="button"
           onClick={centerView}
-          className="compact-action-btn"
+          className="zoom-button zoom-button--fit"
         >
-          {language === "fr" ? "Centrer" : "Fit view"}
-        </button>
-        <button
-          type="button"
-          onClick={async () => {
-            const viewport = await getViewport();
-            await setViewport({ x: viewport.x, y: viewport.y, zoom: Math.min(viewport.zoom + 0.18, 1.8) }, { duration: 250 });
-          }}
-          className="compact-action-btn"
-        >
-          {language === "fr" ? "Zoomer" : "Zoom in"}
-        </button>
-        <button
-          type="button"
-          onClick={async () => {
-            const viewport = await getViewport();
-            await setViewport({ x: viewport.x, y: viewport.y, zoom: Math.max(viewport.zoom - 0.18, 0.3) }, { duration: 250 });
-          }}
-          className="compact-action-btn"
-        >
-          {language === "fr" ? "Dézoomer" : "Zoom out"}
+          {language === "fr" ? "Centrer" : "Fit"}
         </button>
       </div>
 
@@ -630,6 +673,7 @@ export function BrainGraph({
         }}
         onPaneClick={() => {
           setSelectedEdgeId(null);
+          onClearSelection();
         }}
         nodesDraggable={isEditing}
         nodesConnectable={isEditing}

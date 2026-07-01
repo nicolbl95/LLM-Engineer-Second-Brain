@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import type { BrainNode, Difficulty, PillarId } from "../types/brain";
+import type { BrainNode } from "../types/brain";
 import { useLanguage } from "../context/LanguageContext";
 import { ui, uiNested } from "../data/uiStrings";
 import { getNodeColor } from "../utils/graphHelpers";
-import { pillarMeta } from "../data/graph";
 
 interface ConceptDrawerProps {
   node: BrainNode | null;
@@ -95,18 +94,6 @@ export function ConceptDrawer({
         </button>
       </div>
 
-      <div className="concept-drawer__meta">
-        {currentDraft.pillar && (
-          <span className="meta-tag">
-            {ui("pillar", language)}: {t(currentDraft.pillar)}
-          </span>
-        )}
-        {currentDraft.difficulty && (
-          <span className="meta-tag">
-            {ui("difficulty", language)}: {uiNested("difficulties", currentDraft.difficulty, language)}
-          </span>
-        )}
-      </div>
 
       <div className="concept-drawer__content">
         <section className="drawer__section">
@@ -131,6 +118,26 @@ export function ConceptDrawer({
           </div>
 
           <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Mini-explication" : "Short explanation"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.miniExplanation?.[language] ?? currentDraft.shortSummary[language]}</p>
+            ) : (
+              <textarea
+                className="drawer__textarea"
+                value={currentDraft.miniExplanation?.[language] ?? currentDraft.shortSummary[language]}
+                onChange={(e) =>
+                  updateDraft({
+                    miniExplanation: {
+                      ...(currentDraft.miniExplanation ?? currentDraft.shortSummary),
+                      [language]: e.target.value,
+                    },
+                  })
+                }
+              />
+            )}
+          </div>
+
+          <div className="drawer__field-row">
             <label className="drawer__label">{language === "fr" ? "Explication" : "Explanation"}</label>
             {isReadOnly ? (
               <p className="drawer__text">{currentDraft.simpleExplanation[language]}</p>
@@ -142,14 +149,6 @@ export function ConceptDrawer({
                   updateDraft({
                     simpleExplanation: {
                       ...currentDraft.simpleExplanation,
-                      [language]: e.target.value,
-                    },
-                    shortSummary: {
-                      ...currentDraft.shortSummary,
-                      [language]: e.target.value,
-                    },
-                    deepExplanation: {
-                      ...currentDraft.deepExplanation,
                       [language]: e.target.value,
                     },
                   })
@@ -172,47 +171,66 @@ export function ConceptDrawer({
             )}
           </div>
 
-          {currentDraft.pillarId && (
-            <div className="drawer__field-row">
-              <label className="drawer__label">{ui("pillar", language)}</label>
-              {isReadOnly ? (
-                <p className="drawer__text">{t(currentDraft.pillar ?? { fr: currentDraft.pillarId, en: currentDraft.pillarId })}</p>
-              ) : (
-                <select
-                  className="drawer__select"
-                  value={currentDraft.pillarId}
-                  onChange={(e) => updateDraft({ pillarId: e.target.value as PillarId })}
-                >
-                  {Object.entries(pillarMeta).map(([id, meta]) => (
-                    <option key={id} value={id}>
-                      {meta.title[language]}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Largeur du nœud" : "Node width"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.nodeWidth ?? 180}px</p>
+            ) : (
+              <input
+                type="number"
+                className="drawer__input"
+                min={100}
+                value={currentDraft.nodeWidth ?? 180}
+                onChange={(e) => updateDraft({ nodeWidth: Number(e.target.value) })}
+              />
+            )}
+          </div>
 
-          {currentDraft.difficulty && (
-            <div className="drawer__field-row">
-              <label className="drawer__label">{ui("difficulty", language)}</label>
-              {isReadOnly ? (
-                <p className="drawer__text">{uiNested("difficulties", currentDraft.difficulty, language)}</p>
-              ) : (
-                <select
-                  className="drawer__select"
-                  value={currentDraft.difficulty}
-                  onChange={(e) => updateDraft({ difficulty: e.target.value as Difficulty })}
-                >
-                  {(["beginner", "intermediate", "advanced"] as Difficulty[]).map((value) => (
-                    <option key={value} value={value}>
-                      {uiNested("difficulties", value, language)}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-          )}
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Hauteur du nœud" : "Node height"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.nodeHeight ?? 64}px</p>
+            ) : (
+              <input
+                type="number"
+                className="drawer__input"
+                min={40}
+                value={currentDraft.nodeHeight ?? 64}
+                onChange={(e) => updateDraft({ nodeHeight: Number(e.target.value) })}
+              />
+            )}
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Largeur mini-explication" : "Short explanation width"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.miniExplanationWidth ?? 180}px</p>
+            ) : (
+              <input
+                type="number"
+                className="drawer__input"
+                min={100}
+                value={currentDraft.miniExplanationWidth ?? 180}
+                onChange={(e) => updateDraft({ miniExplanationWidth: Number(e.target.value) })}
+              />
+            )}
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Hauteur mini-explication" : "Short explanation height"}</label>
+            {isReadOnly ? (
+              <p className="drawer__text">{currentDraft.miniExplanationHeight ?? 60}px</p>
+            ) : (
+              <input
+                type="number"
+                className="drawer__input"
+                min={30}
+                value={currentDraft.miniExplanationHeight ?? 60}
+                onChange={(e) => updateDraft({ miniExplanationHeight: Number(e.target.value) })}
+              />
+            )}
+          </div>
+
         </section>
 
 

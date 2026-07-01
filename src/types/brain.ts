@@ -58,6 +58,11 @@ export interface BrainNode {
   relatedConcepts: string[];
   commonMistakes: LocalizedList;
   examples: LocalizedList;
+  miniExplanation?: LocalizedText;
+  nodeWidth?: number;
+  nodeHeight?: number;
+  miniExplanationWidth?: number;
+  miniExplanationHeight?: number;
 }
 
 /** Connection between two nodes in the graph. */
@@ -70,6 +75,7 @@ export interface BrainEdge {
   relationshipType: RelationshipType;
   label?: LocalizedText;
   color?: string;
+  labelColor?: string;
   lineStyle?: "solid" | "dashed";
 }
 

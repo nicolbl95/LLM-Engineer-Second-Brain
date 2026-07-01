@@ -147,30 +147,6 @@ export function CommandPanel({
           </button>
         </div>
 
-        {mode === "addKnowledge" && (
-          <div className="command-panel__results">
-            <p className="command-panel__hint">
-              {ui("addKnowledgeFuture", language)}
-            </p>
-            <h4>{ui("savedNotes", language)}</h4>
-            {notes.length === 0 ? (
-              <p className="command-panel__empty">
-                {ui("noNotesYet", language)}
-              </p>
-            ) : (
-              <ul className="notes-list">
-                {notes.map((note) => (
-                  <li key={note.id} className="notes-list__item">
-                    <time>
-                      {new Date(note.createdAt).toLocaleString(language)}
-                    </time>
-                    <p>{note.text}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
 
         {mode === "askBrain" && searchResult && searchResult.query && (
           <div className={`command-panel__results result--${searchResult.type}`}>

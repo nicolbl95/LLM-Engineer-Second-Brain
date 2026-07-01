@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { LanguageProvider } from "./context/LanguageContext";
-import { TopBar } from "./components/TopBar";
+import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { BrainGraph } from "./components/BrainGraph";
 import { ConceptDrawer } from "./components/ConceptDrawer";
 import { CommandPanel, type CommandMode } from "./components/CommandPanel";
@@ -9,18 +8,16 @@ import type { BrainNode, PillarId, ProjectAnalysis, SearchResult } from "./types
 import { getNodeById } from "./utils/graphHelpers";
 import { searchBrain } from "./utils/search";
 import { analyzeProject } from "./utils/graphHelpers";
-import { useLanguage } from "./context/LanguageContext";
 import "./styles.css";
 
 /** Main app layout — graph, drawer, command panel. */
 function AppContent() {
-  const { language } = useLanguage();
+  const { language, setLanguage } = useLanguage();
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedNode, setSelectedNode] = useState<BrainNode | null>(null);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([]);
-  const [activePillar, setActivePillar] = useState<PillarId | "all">("all");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [activePillar] = useState<PillarId | "all">("all");
   const [commandMode, setCommandMode] = useState<CommandMode>("askBrain");
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [projectAnalysis, setProjectAnalysis] =
@@ -78,10 +75,6 @@ function AppContent() {
     [language, selectNode],
   );
 
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) runSearch(searchQuery.trim());
-  };
-
   const handleAskBrain = (query: string) => {
     runSearch(query);
   };
@@ -98,15 +91,37 @@ function AppContent() {
 
   return (
     <div className="app">
-      <TopBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onSearchSubmit={handleSearchSubmit}
-        activePillar={activePillar}
-        onPillarChange={setActivePillar}
-        isReadOnly={isReadOnly}
-        onModeChange={setIsReadOnly}
-      />
+      <div className="app__floating-toolbar">
+        <button
+          type="button"
+          className={`mode-toggle ${isReadOnly ? "mode-toggle--read-only" : "mode-toggle--edit"}`}
+          onClick={() => setIsReadOnly((current) => !current)}
+        >
+          {isReadOnly
+            ? language === "fr"
+              ? "Lecture seule"
+              : "Read-only"
+            : language === "fr"
+            ? "Édition"
+            : "Edit"}
+        </button>
+        <div className="lang-switcher">
+          <button
+            type="button"
+            className={`lang-switcher__btn ${language === "fr" ? "lang-switcher__btn--active" : ""}`}
+            onClick={() => setLanguage("fr")}
+          >
+            FR
+          </button>
+          <button
+            type="button"
+            className={`lang-switcher__btn ${language === "en" ? "lang-switcher__btn--active" : ""}`}
+            onClick={() => setLanguage("en")}
+          >
+            EN
+          </button>
+        </div>
+      </div>
 
       <main className="app__main">
         <ReactFlowProvider>
@@ -117,6 +132,12 @@ function AppContent() {
             onNodeClick={(id, nodeData) => {
               selectNode(id, true, nodeData);
               setHighlightedNodeIds([id]);
+            }}
+            onClearSelection={() => {
+              setSelectedNodeId(null);
+              setSelectedNode(null);
+              setHighlightedNodeIds([]);
+              setFocusNodeId(null);
             }}
             focusNodeId={focusNodeId}
             onFocusComplete={() => setFocusNodeId(null)}
