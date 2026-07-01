@@ -10,6 +10,8 @@ interface TopBarProps {
   onSearchSubmit: () => void;
   activePillar: PillarId | "all";
   onPillarChange: (pillar: PillarId | "all") => void;
+  isReadOnly: boolean;
+  onModeChange: (value: boolean) => void;
 }
 
 /** Top navigation: title, search, filters, language switcher. */
@@ -19,6 +21,8 @@ export function TopBar({
   onSearchSubmit,
   activePillar,
   onPillarChange,
+  isReadOnly,
+  onModeChange,
 }: TopBarProps) {
   const { language, setLanguage, t } = useLanguage();
   const pillars = getPillarNodes();
@@ -73,18 +77,34 @@ export function TopBar({
         ))}
       </div>
 
-      <div className="lang-switcher" role="group" aria-label="Language">
-        {(["fr", "en"] as const).map((lang) => (
-          <button
-            key={lang}
-            type="button"
-            className={`lang-switcher__btn ${language === lang ? "lang-switcher__btn--active" : ""}`}
-            onClick={() => setLanguage(lang)}
-            aria-pressed={language === lang}
-          >
-            {lang.toUpperCase()}
-          </button>
-        ))}
+      <div className="top-bar__actions">
+        <button
+          type="button"
+          className={`mode-toggle ${isReadOnly ? "mode-toggle--read-only" : "mode-toggle--edit"}`}
+          onClick={() => onModeChange(!isReadOnly)}
+        >
+          {isReadOnly
+            ? language === "fr"
+              ? "Mode lecture seule"
+              : "Read-only mode"
+            : language === "fr"
+              ? "Mode édition"
+              : "Edit mode"}
+        </button>
+
+        <div className="lang-switcher" role="group" aria-label="Language">
+          {(["fr", "en"] as const).map((lang) => (
+            <button
+              key={lang}
+              type="button"
+              className={`lang-switcher__btn ${language === lang ? "lang-switcher__btn--active" : ""}`}
+              onClick={() => setLanguage(lang)}
+              aria-pressed={language === lang}
+            >
+              {lang.toUpperCase()}
+            </button>
+          ))}
+        </div>
       </div>
     </header>
   );

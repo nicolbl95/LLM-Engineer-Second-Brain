@@ -5,7 +5,7 @@ import { TopBar } from "./components/TopBar";
 import { BrainGraph } from "./components/BrainGraph";
 import { ConceptDrawer } from "./components/ConceptDrawer";
 import { CommandPanel, type CommandMode } from "./components/CommandPanel";
-import type { PillarId, ProjectAnalysis, SearchResult } from "./types/brain";
+import type { BrainNode, PillarId, ProjectAnalysis, SearchResult } from "./types/brain";
 import { getNodeById } from "./utils/graphHelpers";
 import { searchBrain } from "./utils/search";
 import { analyzeProject } from "./utils/graphHelpers";
@@ -17,6 +17,7 @@ function AppContent() {
   const { language } = useLanguage();
 
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<BrainNode | null>(null);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([]);
   const [activePillar, setActivePillar] = useState<PillarId | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -25,21 +26,22 @@ function AppContent() {
   const [projectAnalysis, setProjectAnalysis] =
     useState<ProjectAnalysis | null>(null);
   const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
-
-  const selectedNode = selectedNodeId
-    ? getNodeById(selectedNodeId) ?? null
-    : null;
+  const [isReadOnly, setIsReadOnly] = useState(true);
 
   /** Select a node, open drawer, optionally highlight related nodes. */
-  const selectNode = useCallback((nodeId: string, highlight = true) => {
-    setSelectedNodeId(nodeId);
-    setFocusNodeId(nodeId);
-    const node = getNodeById(nodeId);
-    if (node && highlight) {
-      const related = node.relatedConcepts ?? [];
-      setHighlightedNodeIds([nodeId, ...related]);
-    }
-  }, []);
+  const selectNode = useCallback(
+    (nodeId: string, highlight = true, nodeData?: BrainNode | null) => {
+      setSelectedNodeId(nodeId);
+      setFocusNodeId(nodeId);
+      const node = nodeData ?? getNodeById(nodeId) ?? null;
+      setSelectedNode(node);
+      if (node && highlight) {
+        const related = node.relatedConcepts ?? [];
+        setHighlightedNodeIds([nodeId, ...related]);
+      }
+    },
+    [],
+  );
 
   /** Run search from top bar — opens Ask Brain results and best match. */
   const runSearch = useCallback(
@@ -73,8 +75,7 @@ function AppContent() {
     const ids = analysis.relevantNodes.map((n) => n.id);
     setHighlightedNodeIds(ids);
     if (analysis.relevantNodes[0]) {
-      setSelectedNodeId(analysis.relevantNodes[0].id);
-      setFocusNodeId(analysis.relevantNodes[0].id);
+      selectNode(analysis.relevantNodes[0].id, true, analysis.relevantNodes[0]);
     }
   };
 
@@ -86,6 +87,8 @@ function AppContent() {
         onSearchSubmit={handleSearchSubmit}
         activePillar={activePillar}
         onPillarChange={setActivePillar}
+        isReadOnly={isReadOnly}
+        onModeChange={setIsReadOnly}
       />
 
       <main className="app__main">
@@ -94,12 +97,13 @@ function AppContent() {
             selectedNodeId={selectedNodeId}
             highlightedNodeIds={highlightedNodeIds}
             activePillar={activePillar}
-            onNodeClick={(id) => {
-              selectNode(id);
+            onNodeClick={(id, nodeData) => {
+              selectNode(id, true, nodeData);
               setHighlightedNodeIds([id]);
             }}
             focusNodeId={focusNodeId}
             onFocusComplete={() => setFocusNodeId(null)}
+            isReadOnly={isReadOnly}
           />
         </ReactFlowProvider>
 
@@ -107,6 +111,7 @@ function AppContent() {
           node={selectedNode}
           onClose={() => {
             setSelectedNodeId(null);
+            setSelectedNode(null);
             setHighlightedNodeIds([]);
           }}
           onRelatedClick={(id) => selectNode(id)}

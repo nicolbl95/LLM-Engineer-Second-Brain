@@ -28,9 +28,10 @@ interface BrainGraphProps {
   selectedNodeId: string | null;
   highlightedNodeIds: string[];
   activePillar: PillarId | "all";
-  onNodeClick: (nodeId: string) => void;
+  onNodeClick: (nodeId: string, nodeData?: BrainNode | null) => void;
   focusNodeId: string | null;
   onFocusComplete: () => void;
+  isReadOnly: boolean;
 }
 
 type LocalizedText = {
@@ -257,6 +258,7 @@ export function BrainGraph({
   onNodeClick,
   focusNodeId,
   onFocusComplete,
+  isReadOnly,
 }: BrainGraphProps) {
   const { language } = useLanguage();
   const { fitView, screenToFlowPosition } = useReactFlow();
@@ -271,8 +273,8 @@ export function BrainGraph({
   const [nodes, setNodes, onNodesChange] = useNodesState(initialCanvas.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialCanvas.edges);
 
-  const [editMode, setEditMode] = useState(false);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const isEditing = !isReadOnly;
 
   const highlightSet = useMemo(
     () => new Set(highlightedNodeIds),
@@ -361,32 +363,31 @@ export function BrainGraph({
 
   /** Add a new concept node manually. */
   const addManualNode = useCallback(() => {
+    if (isReadOnly) return;
+
     const position = screenToFlowPosition({
       x: window.innerWidth / 2,
       y: window.innerHeight / 2,
     });
 
     const id = `manual-node-${Date.now()}`;
+    const defaultTitle = {
+      fr: "Nouveau nœud",
+      en: "New Node",
+    };
+    const defaultExplanation = {
+      fr: "Ajoute ici l’explication de ce concept.",
+      en: "Add the explanation of this concept here.",
+    };
 
-    const newBrainNode = {
+    const newBrainNode: BrainNode = {
       id,
       type: "concept",
-      pillar: "llm-fundamentals",
-      difficulty: "beginner",
-      status: "to-learn",
+      pillarId: activePillar !== "all" ? activePillar : "llm-fundamentals",
       position,
-      title: {
-        fr: "Nouveau concept",
-        en: "New Concept",
-      },
-      shortSummary: {
-        fr: "Concept ajouté manuellement.",
-        en: "Manually added concept.",
-      },
-      simpleExplanation: {
-        fr: "Ajoute ici une explication simple du concept.",
-        en: "Add a simple explanation of the concept here.",
-      },
+      title: defaultTitle,
+      shortSummary: defaultExplanation,
+      simpleExplanation: defaultExplanation,
       deepExplanation: {
         fr: "Ajoute ici une explication détaillée.",
         en: "Add a detailed explanation here.",
@@ -395,12 +396,11 @@ export function BrainGraph({
         fr: "Explique pourquoi ce concept est important.",
         en: "Explain why this concept matters.",
       },
-      prerequisites: [],
+      prerequisites: { fr: [], en: [] },
       relatedConcepts: [],
-      commonMistakes: [],
-      examples: [],
-      screenshots: [],
-    } as unknown as BrainNode;
+      commonMistakes: { fr: [], en: [] },
+      examples: { fr: [], en: [] },
+    };
 
     const newFlowNode: Node = {
       id,
@@ -418,8 +418,8 @@ export function BrainGraph({
     };
 
     setNodes((currentNodes) => [...currentNodes, newFlowNode]);
-    onNodeClick(id);
-  }, [language, onNodeClick, screenToFlowPosition, setNodes]);
+    onNodeClick(id, newBrainNode);
+  }, [activePillar, isReadOnly, language, onNodeClick, screenToFlowPosition, setNodes]);
 
   /** Add a visual group shape behind nodes. */
   const addGroup = useCallback(() => {
@@ -549,38 +549,16 @@ export function BrainGraph({
       >
         <button
           type="button"
-          onClick={() => setEditMode((value) => !value)}
-          style={{
-            border: editMode
-              ? "1px solid rgba(129, 140, 248, 0.9)"
-              : "1px solid rgba(148, 163, 184, 0.24)",
-            background: editMode
-              ? "rgba(99, 102, 241, 0.24)"
-              : "rgba(30, 41, 59, 0.7)",
-            color: "#e2e8f0",
-            borderRadius: 12,
-            padding: "8px 10px",
-            cursor: "pointer",
-            fontWeight: 700,
-            fontSize: 12,
-          }}
-        >
-          {language === "fr" ? "Mode édition" : "Edit Mode"}
-          {editMode ? " ✓" : ""}
-        </button>
-
-        <button
-          type="button"
           onClick={addManualNode}
-          disabled={!editMode}
+          disabled={!isEditing}
           style={{
-            opacity: editMode ? 1 : 0.45,
+            opacity: isEditing ? 1 : 0.45,
             border: "1px solid rgba(148, 163, 184, 0.24)",
             background: "rgba(30, 41, 59, 0.7)",
             color: "#e2e8f0",
             borderRadius: 12,
             padding: "8px 10px",
-            cursor: editMode ? "pointer" : "not-allowed",
+            cursor: isEditing ? "pointer" : "not-allowed",
             fontWeight: 700,
             fontSize: 12,
           }}
@@ -591,15 +569,15 @@ export function BrainGraph({
         <button
           type="button"
           onClick={addGroup}
-          disabled={!editMode}
+          disabled={!isEditing}
           style={{
-            opacity: editMode ? 1 : 0.45,
+            opacity: isEditing ? 1 : 0.45,
             border: "1px solid rgba(148, 163, 184, 0.24)",
             background: "rgba(30, 41, 59, 0.7)",
             color: "#e2e8f0",
             borderRadius: 12,
             padding: "8px 10px",
-            cursor: editMode ? "pointer" : "not-allowed",
+            cursor: isEditing ? "pointer" : "not-allowed",
             fontWeight: 700,
             fontSize: 12,
           }}
@@ -638,7 +616,7 @@ export function BrainGraph({
             fontSize: 12,
           }}
         >
-          {language === "fr" ? "Réinitialiser" : "Reset"}
+          {language === "fr" ? "Réinitialiser la carte" : "Reset Map"}
         </button>
       </div>
 
@@ -666,7 +644,7 @@ export function BrainGraph({
             {selectedEdge.label?.toString()}
           </div>
 
-          {editMode && (
+          {isEditing && (
             <button
               type="button"
               onClick={deleteSelectedEdge}
@@ -693,8 +671,8 @@ export function BrainGraph({
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
-        onConnect={editMode ? onConnect : undefined}
-        onReconnect={editMode ? onReconnect : undefined}
+        onConnect={isEditing ? onConnect : undefined}
+        onReconnect={isEditing ? onReconnect : undefined}
         onNodeClick={(_, node) => {
           setSelectedEdgeId(null);
 
@@ -702,7 +680,9 @@ export function BrainGraph({
             return;
           }
 
-          onNodeClick(node.id);
+          const flowNode = nodes.find((candidate) => candidate.id === node.id);
+          const selectedNode = (flowNode?.data as FlowNodeData | undefined)?.node ?? null;
+          onNodeClick(node.id, selectedNode);
         }}
         onEdgeClick={(_, edge) => {
           setSelectedEdgeId(edge.id);
@@ -710,11 +690,11 @@ export function BrainGraph({
         onPaneClick={() => {
           setSelectedEdgeId(null);
         }}
-        nodesDraggable={editMode}
-        nodesConnectable={editMode}
-        edgesReconnectable={editMode}
+        nodesDraggable={isEditing}
+        nodesConnectable={isEditing}
+        edgesReconnectable={isEditing}
         elementsSelectable
-        deleteKeyCode={editMode ? "Delete" : null}
+        deleteKeyCode={isEditing ? "Delete" : null}
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.3}

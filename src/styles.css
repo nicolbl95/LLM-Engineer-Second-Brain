@@ -186,6 +186,38 @@ body {
   color: var(--text);
 }
 
+/* Top bar actions */
+.top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.mode-toggle {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  color: var(--text);
+  background: var(--bg-elevated);
+  transition: all 0.2s ease;
+}
+
+.mode-toggle--read-only {
+  border-color: rgba(251, 191, 36, 0.35);
+  background: rgba(245, 158, 11, 0.16);
+  color: #fde68a;
+}
+
+.mode-toggle--edit {
+  border-color: rgba(99, 102, 241, 0.35);
+  background: rgba(99, 102, 241, 0.2);
+  color: #c7d2fe;
+}
+
 /* Language switcher */
 .lang-switcher {
   display: flex;
