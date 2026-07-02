@@ -48,7 +48,6 @@ interface BrainGraphProps {
   onNodeUpdate?: (node: BrainNode) => void;
   onNodeDelete?: (nodeId: string) => void;
   onHistoryStateChange?: (state: { nodes: any[]; edges: any[] }) => void;
-  onNodesUpdate?: (nodes: any[]) => void;
   restoreHistoryState?: { nodes: any[]; edges: any[] } | null;
 }
 
@@ -363,7 +362,6 @@ export function BrainGraph({
   onNodeUpdate,
   onNodeDelete,
   onHistoryStateChange,
-  onNodesUpdate,
   restoreHistoryState,
 }: BrainGraphProps) {
   const { language } = useLanguage();
@@ -492,12 +490,6 @@ export function BrainGraph({
     }
   }, [nodes, edges, onHistoryStateChange]);
 
-  /** Notify parent of current nodes for search functionality */
-  useEffect(() => {
-    if (onNodesUpdate) {
-      onNodesUpdate(nodes);
-    }
-  }, [nodes, onNodesUpdate]);
 
   /** Restore state from history */
   useEffect(() => {

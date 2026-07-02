@@ -107,8 +107,20 @@ export interface SavedNote {
 /** Build Project analysis result. */
 export interface ProjectAnalysis {
   projectType: LocalizedText;
-  relevantNodes: BrainNode[];
-  missingConcepts: LocalizedText[];
-  learningPath: BrainNode[];
-  roadmap: LocalizedText[];
+
+  /** Part 1: Existing graph elements related to the input, with explanations. */
+  existingAnalysis: {
+    nodeId: string;
+    nodeTitle: LocalizedText;
+    relevanceExplanation: LocalizedText;
+  }[];
+
+  /** Part 2: Recommendations for new elements to add to the graph. */
+  recommendedNewElements: {
+    type: "node" | "connection";
+    title: LocalizedText;
+    description: LocalizedText;
+    suggestedPillar?: PillarId;
+    suggestedConnections?: string[];
+  }[];
 }

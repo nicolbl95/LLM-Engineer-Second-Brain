@@ -217,60 +217,91 @@ export function CommandPanel({
               </p>
             </div>
 
-            {projectAnalysis.relevantNodes.length > 0 && (
+            {/* Part 1: Existing Graph Analysis */}
+            {projectAnalysis.existingAnalysis.length > 0 && (
               <div className="result__section">
-                <h5>{ui("relevantConcepts", language)}</h5>
+                <h5>{ui("existingAnalysis", language)}</h5>
                 <div className="result__cards">
-                  {projectAnalysis.relevantNodes.map((n) => (
-                    <NodeCard
-                      key={n.id}
-                      node={n}
-                      compact
-                      onClick={() => onNodeSelect(n.id)}
-                    />
+                  {projectAnalysis.existingAnalysis.map((item) => (
+                    <button
+                      key={item.nodeId}
+                      type="button"
+                      className="node-card"
+                      style={{
+                        borderLeft: "3px solid var(--accent)",
+                      }}
+                      onClick={() => onNodeSelect(item.nodeId)}
+                    >
+                      <div className="node-card__body">
+                        <span className="node-card__title">
+                          {t(item.nodeTitle)}
+                        </span>
+                        <span className="node-card__summary">
+                          {t(item.relevanceExplanation)}
+                        </span>
+                      </div>
+                    </button>
                   ))}
                 </div>
               </div>
             )}
 
-            {projectAnalysis.missingConcepts.length > 0 && (
+            {/* Part 2: Recommendations for Expansion */}
+            {projectAnalysis.recommendedNewElements.length > 0 && (
               <div className="result__section">
-                <h5>{ui("missingConcepts", language)}</h5>
-                <ul className="drawer__list">
-                  {projectAnalysis.missingConcepts.map((c) => (
-                    <li key={c.fr}>{pick(c, language)}</li>
-                  ))}
-                </ul>
+                <h5>{ui("recommendations", language)}</h5>
+
+                {/* New nodes */}
+                {projectAnalysis.recommendedNewElements.filter((e) => e.type === "node").length > 0 && (
+                  <>
+                    <h6 style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginBottom: 6, marginTop: 8 }}>
+                      {ui("newNodes", language)}
+                    </h6>
+                    {projectAnalysis.recommendedNewElements
+                      .filter((e) => e.type === "node")
+                      .map((rec, i) => (
+                        <div key={`node-${i}`} className="result__section" style={{ marginBottom: 8 }}>
+                          <div className="node-card" style={{ borderLeft: "3px solid #34d399", cursor: "default" }}>
+                            <div className="node-card__body">
+                              <span className="node-card__title" style={{ color: "#34d399" }}>
+                                + {t(rec.title)}
+                              </span>
+                              <span className="node-card__summary">
+                                {t(rec.description)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                    ))}
+                  </>
+                )}
+
+                {/* New connections */}
+                {projectAnalysis.recommendedNewElements.filter((e) => e.type === "connection").length > 0 && (
+                  <>
+                    <h6 style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginBottom: 6, marginTop: 8 }}>
+                      {ui("newConnections", language)}
+                    </h6>
+                    {projectAnalysis.recommendedNewElements
+                      .filter((e) => e.type === "connection")
+                      .map((rec, i) => (
+                        <div key={`conn-${i}`} className="result__section" style={{ marginBottom: 8 }}>
+                          <div className="node-card" style={{ borderLeft: "3px solid #818cf8", cursor: "default" }}>
+                            <div className="node-card__body">
+                              <span className="node-card__title" style={{ color: "#818cf8" }}>
+                                ⤻ {t(rec.title)}
+                              </span>
+                              <span className="node-card__summary">
+                                {t(rec.description)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                    ))}
+                  </>
+                )}
               </div>
             )}
-
-            {projectAnalysis.learningPath.length > 0 && (
-              <div className="result__section">
-                <h5>{ui("learningPath", language)}</h5>
-                <ol className="learning-path">
-                  {projectAnalysis.learningPath.map((n, i) => (
-                    <li key={n.id}>
-                      <button
-                        type="button"
-                        className="learning-path__link"
-                        onClick={() => onNodeSelect(n.id)}
-                      >
-                        {i + 1}. {t(n.title)}
-                      </button>
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            )}
-
-            <div className="result__section">
-              <h5>{ui("roadmap", language)}</h5>
-              <ul className="drawer__list">
-                {projectAnalysis.roadmap.map((step) => (
-                  <li key={step.fr}>{t(step)}</li>
-                ))}
-              </ul>
-            </div>
           </div>
         )}
       </div>

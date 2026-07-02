@@ -1,14 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { Search, X } from "lucide-react";
 import type { BrainNode } from "../types/brain";
-import { useReactFlow } from "@xyflow/react";
+import { brainNodes } from "../data/graph";
 import { useLanguage } from "../context/LanguageContext";
 
 interface SearchPanelProps {
-  nodes: any[];
   onClose: () => void;
   onNodeSelect: (nodeId: string) => void;
-  onPanToNode?: (nodeId: string) => void;
 }
 
 interface SearchResult {
@@ -18,13 +16,21 @@ interface SearchResult {
   matchType: "title" | "explanation";
 }
 
-export function SearchPanel({ nodes, onClose, onNodeSelect, onPanToNode }: SearchPanelProps) {
+export function SearchPanel({ onClose, onNodeSelect }: SearchPanelProps) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const { language } = useLanguage();
-  const { setCenter } = useReactFlow();
+
+  // Build nodes list from static data
+  const nodesList = useMemo(() => {
+    return brainNodes.map((n) => ({
+      id: n.id,
+      node: n,
+    }));
+  }, []);
 
   const getSnippet = (text: string, searchTerm: string): string => {
+    if (!text) return "";
     const lowerText = text.toLowerCase();
     const index = lowerText.indexOf(searchTerm);
     if (index === -1) return "";
@@ -47,62 +53,52 @@ export function SearchPanel({ nodes, onClose, onNodeSelect, onPanToNode }: Searc
     }
 
     const searchTerm = query.toLowerCase().trim();
+    const seenIds = new Set<string>();
     const matches: SearchResult[] = [];
 
-    console.log("Searching for:", searchTerm, "in", nodes.length, "nodes");
+    nodesList.forEach((item) => {
+      const brainNode = item.node as BrainNode;
+      if (!brainNode) return;
 
-    nodes.forEach((node) => {
-      // Extract BrainNode from React Flow node structure
-      const flowData = node.data as any;
-      const brainNode = flowData?.node as BrainNode | undefined;
-      
-      if (!brainNode) {
-        console.log("No brainNode found for node:", node.id);
-        return;
-      }
+      // Prevent duplicate node entries
+      if (seenIds.has(brainNode.id)) return;
 
-      const title = brainNode.title?.[language]?.toLowerCase() || "";
-      const explanation = brainNode.simpleExplanation?.[language]?.toLowerCase() || "";
+      const title = brainNode.title?.[language] || "";
+      const explanation = brainNode.simpleExplanation?.[language] || "";
 
-      console.log("Checking node:", brainNode.title, "- title:", title, "- explanation:", explanation);
+      const titleLower = title.toLowerCase();
+      const explanationLower = explanation.toLowerCase();
 
-      // Search in title
-      if (title.includes(searchTerm)) {
-        const snippet = getSnippet(brainNode.simpleExplanation?.[language] || "", searchTerm);
+      // Strict search: the search term must literally appear in title or explanation
+      const titleMatch = titleLower.includes(searchTerm);
+      const explanationMatch = explanationLower.includes(searchTerm);
+
+      if (titleMatch) {
+        seenIds.add(brainNode.id);
+        // Only show snippet if the search term also appears in the explanation
+        const snippet = getSnippet(explanation, searchTerm);
         matches.push({
           nodeId: brainNode.id,
-          title: brainNode.title[language],
-          snippet: snippet || brainNode.simpleExplanation?.[language]?.substring(0, 100) || "",
+          title: title,
+          snippet: snippet || "",
           matchType: "title",
         });
-      }
-      // Search in explanation
-      else if (explanation.includes(searchTerm)) {
-        const snippet = getSnippet(brainNode.simpleExplanation?.[language] || "", searchTerm);
+      } else if (explanationMatch) {
+        seenIds.add(brainNode.id);
+        const snippet = getSnippet(explanation, searchTerm);
         matches.push({
           nodeId: brainNode.id,
-          title: brainNode.title[language],
+          title: title,
           snippet: snippet,
           matchType: "explanation",
         });
       }
     });
 
-    console.log("Found", matches.length, "matches");
     setResults(matches);
-  }, [query, nodes, language]);
+  }, [query, nodesList, language]);
 
   const handleResultClick = (nodeId: string) => {
-    // Find the node position and pan to it
-    const node = nodes.find((n) => n.id === nodeId);
-    if (node) {
-      setCenter(node.position.x + (node.width || 180) / 2, node.position.y + (node.height || 64) / 2, {
-        zoom: 1.2,
-        duration: 400,
-      });
-    }
-
-    // Notify parent to select the node
     onNodeSelect(nodeId);
   };
 

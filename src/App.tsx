@@ -95,10 +95,10 @@ function AppContent() {
   const handleBuildProject = (description: string) => {
     const analysis = analyzeProject(description, language);
     setProjectAnalysis(analysis);
-    const ids = analysis.relevantNodes.map((n) => n.id);
+    const ids = analysis.existingAnalysis.map((n) => n.nodeId);
     setHighlightedNodeIds(ids);
-    if (analysis.relevantNodes[0]) {
-      selectNode(analysis.relevantNodes[0].id, true, analysis.relevantNodes[0]);
+    if (analysis.existingAnalysis[0]) {
+      selectNode(analysis.existingAnalysis[0].nodeId, true);
     }
   };
 
@@ -143,8 +143,8 @@ function AppContent() {
           title={language === "fr" ? "Retour en arrière (Ctrl+Z)" : "Undo (Ctrl+Z)"}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 7v6h6"></path>
-            <path d="M21 17a9.9 9.9 0 0 0-9.3-15.3 9.9 9.9 0 0 0-9.3 15.3"></path>
+            <path d="M9 14L4 9L9 4"></path>
+            <path d="M4 9H16.5C18.99 9 21 11.01 21 13.5V13.5C21 15.99 18.99 18 16.5 18H15"></path>
           </svg>
         </button>
         <button
@@ -156,8 +156,8 @@ function AppContent() {
           title={language === "fr" ? "Retour en avant (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)"}
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 7v6h-6"></path>
-            <path d="M3 17a9.9 9.9 0 0 1 9.3-15.3 9.9 9.9 0 0 1 9.3 15.3"></path>
+            <path d="M15 14L20 9L15 4"></path>
+            <path d="M20 9H7.5C5.01 9 3 11.01 3 13.5V13.5C3 15.99 5.01 18 7.5 18H9"></path>
           </svg>
         </button>
         <div className="lang-switcher">
@@ -185,7 +185,9 @@ function AppContent() {
             highlightedNodeIds={highlightedNodeIds}
             activePillar={activePillar}
             onNodeClick={(id, nodeData) => {
-              selectNode(id, true, nodeData);
+              setSelectedNodeId(id);
+              const node = nodeData ?? getNodeById(id) ?? null;
+              setSelectedNode(node);
               setHighlightedNodeIds([id]);
             }}
             onClearSelection={() => {
@@ -198,26 +200,22 @@ function AppContent() {
             onNodeUpdate={handleNodeUpdate}
             onNodeDelete={handleNodeDelete}
             onHistoryStateChange={(state) => pushState(state)}
-            onNodesUpdate={(nodes) => {
-              // Update search panel with latest nodes
-              if (isSearchOpen) {
-                // Force re-render of search panel by updating a dummy state
-                setHistoryState(prev => ({ ...prev, nodes }));
-              }
-            }}
             restoreHistoryState={historyState}
           />
+          {isSearchOpen && (
+            <SearchPanel
+              onClose={() => setIsSearchOpen(false)}
+              onNodeSelect={(nodeId) => {
+                // Select only this node, don't highlight related nodes
+                setSelectedNodeId(nodeId);
+                const node = getNodeById(nodeId) ?? null;
+                setSelectedNode(node);
+                setHighlightedNodeIds([nodeId]);
+                setIsSearchOpen(false);
+              }}
+            />
+          )}
         </ReactFlowProvider>
-        {isSearchOpen && (
-          <SearchPanel
-            nodes={historyState.nodes || []}
-            onClose={() => setIsSearchOpen(false)}
-            onNodeSelect={(nodeId) => {
-              selectNode(nodeId);
-              setIsSearchOpen(false);
-            }}
-          />
-        )}
 
         <ConceptDrawer
           node={selectedNode}

@@ -92,10 +92,11 @@ export const uiStrings = {
   },
   similarTerms: { fr: "Termes proches", en: "Similar terms" },
   projectType: { fr: "Type de projet", en: "Project type" },
-  relevantConcepts: { fr: "Concepts pertinents", en: "Relevant concepts" },
-  missingConcepts: { fr: "Concepts manquants", en: "Missing concepts" },
-  learningPath: { fr: "Parcours d'apprentissage", en: "Learning path" },
-  roadmap: { fr: "Feuille de route", en: "Roadmap" },
+  existingAnalysis: { fr: "Analyse du graphe existant", en: "Existing Graph Analysis" },
+  whyRelevant: { fr: "Pourquoi c'est lié", en: "Why it's relevant" },
+  recommendations: { fr: "Recommandations d'expansion", en: "Recommendations for Expansion" },
+  newNodes: { fr: "Nouveaux nœuds proposés", en: "Suggested new nodes" },
+  newConnections: { fr: "Nouvelles connexions proposées", en: "Suggested new connections" },
   noNotesYet: { fr: "Aucune note pour l'instant.", en: "No notes yet." },
 } as const;
 
