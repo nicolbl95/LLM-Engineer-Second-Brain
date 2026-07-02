@@ -95,6 +95,7 @@ export interface SearchResult {
   mentionDetails?: LocalizedText;
   /** Close term suggestions when nothing matches. */
   suggestions: string[];
+  markdownResponse?: LocalizedText;
 }
 
 /** Saved user note (Add Knowledge MVP). */

@@ -46,7 +46,7 @@ export const uiStrings = {
   },
   commandModes: {
     addKnowledge: { fr: "Ajouter", en: "Add Knowledge" },
-    askBrain: { fr: "Demander", en: "Ask Brain" },
+    askBrain: { fr: "Demander", en: "Ask" },
     buildProject: { fr: "Construire", en: "Build Project" },
   },
   addKnowledgeTitle: {
