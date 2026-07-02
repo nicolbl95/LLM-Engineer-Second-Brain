@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ReactFlow,
   Background,
@@ -25,19 +25,31 @@ import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
 import { pick } from "../utils/i18n";
 import { EdgeEditor } from "./EdgeEditor";
 
+interface ResizeState {
+  nodeId: string;
+  handle: string;
+  startX: number;
+  startY: number;
+  startWidth: number;
+  startHeight: number;
+  startMiniWidth: number;
+  startMiniHeight: number;
+  isResizing: boolean;
+}
+
 interface BrainGraphProps {
   selectedNodeId: string | null;
   highlightedNodeIds: string[];
   activePillar: PillarId | "all";
   onNodeClick: (nodeId: string, nodeData?: BrainNode | null) => void;
   onClearSelection: () => void;
-  focusNodeId: string | null;
-  onFocusComplete: () => void;
-  isReadOnly: boolean;
   updatedNode?: BrainNode | null;
   deletedNodeId?: string | null;
   onNodeUpdate?: (node: BrainNode) => void;
   onNodeDelete?: (nodeId: string) => void;
+  onHistoryStateChange?: (state: { nodes: any[]; edges: any[] }) => void;
+  onNodesUpdate?: (nodes: any[]) => void;
+  restoreHistoryState?: { nodes: any[]; edges: any[] } | null;
 }
 
 type LocalizedText = {
@@ -71,7 +83,7 @@ const PROTECTED_NODE_IDS = new Set([
 ]);
 
 /** Custom React Flow node — label uses active language only. */
-function BrainNodeComponent({ data, selected }: NodeProps) {
+function BrainNodeComponent({ data, selected, onResizeStart }: NodeProps & { onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, nodeWidth: number, nodeHeight: number, miniWidth: number, miniHeight: number) => void }) {
   const flowData = data as FlowNodeData;
   const node = flowData.node as BrainNode;
   const color = getNodeColor(node);
@@ -79,19 +91,35 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
   const label = flowData.label as string;
   const dimmed = flowData.dimmed as boolean;
   const isEditing = Boolean(flowData.isEditing);
-  const pointerEvents = isEditing ? "auto" : "none";
+  const showHandles = selected && isEditing; // Only show handles when node is selected
+  const pointerEvents = showHandles ? "auto" : "none";
   const handleStyle: CSSProperties = {
-    opacity: isEditing ? 1 : 0,
+    opacity: showHandles ? 1 : 0,
     pointerEvents,
     background: color,
     border: "1px solid rgba(255,255,255,0.8)",
   };
-  const handleClassName = isEditing ? "brain-handle brain-handle--visible" : "brain-handle";
+  const handleClassName = showHandles ? "brain-handle brain-handle--visible" : "brain-handle";
   const miniText = flowData.miniExplanation as string | undefined;
   const miniWidth = flowData.miniExplanationWidth ?? 180;
   const miniHeight = flowData.miniExplanationHeight ?? 60;
   const nodeWidth = flowData.nodeWidth ?? 180;
   const nodeHeight = flowData.nodeHeight ?? 64;
+  const fontSize = flowData.node?.fontSize ?? 14;
+
+  // Resize handle props
+  const showResizeHandles = selected && isEditing;
+  const resizeHandleStyle: CSSProperties = {
+    position: "absolute",
+    width: "12px",
+    height: "12px",
+    backgroundColor: "#ffffff",
+    border: "2px solid rgba(99, 102, 241, 0.8)",
+    borderRadius: "50%",
+    cursor: "nwse-resize",
+    zIndex: 10,
+    boxShadow: "0 0 8px rgba(99, 102, 241, 0.5)",
+  };
 
   return (
     <div
@@ -143,16 +171,40 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
         isConnectable={isEditing}
       />
 
-      <span className="brain-node__label">{label}</span>
+      <span className="brain-node__label" style={{ fontSize: `${fontSize}px` }}>{label}</span>
 
       {miniText && (
         <div className="brain-node__mini">{miniText}</div>
       )}
 
-      {node.type === "concept" && node.difficulty && (
-        <span className="brain-node__diff">
-          {node.difficulty.charAt(0).toUpperCase()}
-        </span>
+      {/* Resize handles - only visible when selected and in edit mode */}
+      {showResizeHandles && onResizeStart && (
+        <>
+          <div
+            className="resize-handle resize-handle--nw"
+            style={{ ...resizeHandleStyle, top: "-6px", left: "-6px", cursor: "nwse-resize" }}
+            onMouseDown={(e) => onResizeStart(e, node.id, "nw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "nw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+          />
+          <div
+            className="resize-handle resize-handle--ne"
+            style={{ ...resizeHandleStyle, top: "-6px", right: "-6px", cursor: "nesw-resize" }}
+            onMouseDown={(e) => onResizeStart(e, node.id, "ne", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "ne", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+          />
+          <div
+            className="resize-handle resize-handle--sw"
+            style={{ ...resizeHandleStyle, bottom: "-6px", left: "-6px", cursor: "nesw-resize" }}
+            onMouseDown={(e) => onResizeStart(e, node.id, "sw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "sw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+          />
+          <div
+            className="resize-handle resize-handle--se"
+            style={{ ...resizeHandleStyle, bottom: "-6px", right: "-6px", cursor: "nwse-resize" }}
+            onMouseDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+          />
+        </>
       )}
 
       <Handle
@@ -191,9 +243,7 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
   );
 }
 
-const nodeTypes = {
-  brain: memo(BrainNodeComponent),
-};
+// nodeTypes will be defined inside the component to access handleResizeStart
 
 /** Convert static brain data into editable React Flow nodes. */
 function createInitialFlowNodes(language: "fr" | "en"): Node[] {
@@ -287,31 +337,6 @@ function loadSavedCanvas(language: "fr" | "en") {
   }
 }
 
-/** Pan/zoom to a node when search or project analysis selects one. */
-function GraphFocus({
-  focusNodeId,
-  onComplete,
-}: {
-  focusNodeId: string | null;
-  onComplete: () => void;
-}) {
-  const { fitView } = useReactFlow();
-
-  useEffect(() => {
-    if (!focusNodeId) return;
-
-    fitView({
-      nodes: [{ id: focusNodeId }],
-      padding: 0.5,
-      duration: 600,
-    });
-
-    const timer = setTimeout(onComplete, 700);
-    return () => clearTimeout(timer);
-  }, [focusNodeId, fitView, onComplete]);
-
-  return null;
-}
 
 /**
  * Editable interactive knowledge graph.
@@ -333,13 +358,13 @@ export function BrainGraph({
   activePillar,
   onNodeClick,
   onClearSelection,
-  focusNodeId,
-  onFocusComplete,
-  isReadOnly,
   updatedNode,
   deletedNodeId,
   onNodeUpdate,
   onNodeDelete,
+  onHistoryStateChange,
+  onNodesUpdate,
+  restoreHistoryState,
 }: BrainGraphProps) {
   const { language } = useLanguage();
   const { fitView, zoomIn, zoomOut } = useReactFlow();
@@ -355,7 +380,16 @@ export function BrainGraph({
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialCanvas.edges);
 
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
-  const isEditing = !isReadOnly;
+  const [resizeState, setResizeState] = useState<ResizeState | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectionSource, setConnectionSource] = useState<string | null>(null);
+  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const isEditing = true; // Always in edit mode
+
+  /** Generate a unique node ID */
+  const generateNodeId = useCallback(() => {
+    return `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }, []);
 
   const highlightSet = useMemo(
     () => new Set(highlightedNodeIds),
@@ -441,6 +475,37 @@ export function BrainGraph({
       }),
     );
   }, [nodes, edges]);
+
+  /** Notify parent of state changes for history tracking - with debounce */
+  const lastNotifiedStateRef = useRef<string>("");
+  useEffect(() => {
+    if (!onHistoryStateChange) return;
+    
+    const stateString = JSON.stringify({ nodes, edges });
+    if (stateString !== lastNotifiedStateRef.current) {
+      lastNotifiedStateRef.current = stateString;
+      // Use setTimeout to avoid pushing state during React Flow's internal updates
+      const timeoutId = setTimeout(() => {
+        onHistoryStateChange({ nodes, edges });
+      }, 100);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [nodes, edges, onHistoryStateChange]);
+
+  /** Notify parent of current nodes for search functionality */
+  useEffect(() => {
+    if (onNodesUpdate) {
+      onNodesUpdate(nodes);
+    }
+  }, [nodes, onNodesUpdate]);
+
+  /** Restore state from history */
+  useEffect(() => {
+    if (restoreHistoryState && restoreHistoryState.nodes.length > 0) {
+      setNodes(restoreHistoryState.nodes);
+      setEdges(restoreHistoryState.edges);
+    }
+  }, [restoreHistoryState, setNodes, setEdges]);
 
   useEffect(() => {
     if (!updatedNode) return;
@@ -578,6 +643,119 @@ export function BrainGraph({
     [setEdges],
   );
 
+  /** Add a new node at the center of the current view */
+  const handleAddNode = useCallback(() => {
+    const newNodeId = generateNodeId();
+    
+    // Use a default center position
+    const centerX = 400;
+    const centerY = 320;
+
+    const newNode: Node = {
+      id: newNodeId,
+      type: "brain",
+      position: { x: centerX - 90, y: centerY - 32 },
+      data: {
+        node: {
+          id: newNodeId,
+          type: "concept",
+          position: { x: centerX - 90, y: centerY - 32 },
+          title: { fr: "Nouveau Nœud", en: "New Node" },
+          shortSummary: { fr: "", en: "" },
+          simpleExplanation: { fr: "", en: "" },
+          deepExplanation: { fr: "", en: "" },
+          whyItMatters: { fr: "", en: "" },
+          prerequisites: { fr: [], en: [] },
+          relatedConcepts: [],
+          commonMistakes: { fr: [], en: [] },
+          examples: { fr: [], en: [] },
+        } as BrainNode,
+        label: language === "fr" ? "Nouveau Nœud" : "New Node",
+        nodeWidth: 180,
+        nodeHeight: 64,
+        highlighted: false,
+        dimmed: false,
+      },
+      selected: true,
+      draggable: true,
+      deletable: true,
+    };
+
+    setNodes((currentNodes) => [...currentNodes, newNode]);
+    
+    // Notify parent to open the drawer for editing
+    setTimeout(() => {
+      onNodeClick(newNodeId, newNode.data.node as BrainNode);
+    }, 100);
+  }, [generateNodeId, language, setNodes, onNodeClick]);
+
+  /** Start connection creation mode */
+  const handleStartConnection = useCallback(() => {
+    setIsConnecting(true);
+    setConnectionSource(null);
+  }, []);
+
+  /** Handle mouse move during connection creation */
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (isConnecting) {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    }
+  }, [isConnecting]);
+
+  /** Handle node click during connection creation */
+  const handleConnectionNodeClick = useCallback((nodeId: string) => {
+    if (!isConnecting) return;
+
+    if (!connectionSource) {
+      // First node clicked - set as source
+      setConnectionSource(nodeId);
+    } else {
+      // Second node clicked - create connection
+      if (connectionSource !== nodeId) {
+        const newEdge: Edge = {
+          id: `edge-${Date.now()}`,
+          source: connectionSource,
+          target: nodeId,
+          label: language === "fr" ? "lié à" : "related to",
+          animated: false,
+          style: {
+            stroke: "#818cf8",
+            strokeWidth: 1.8,
+          },
+          labelStyle: {
+            fill: "#ffffff",
+            fontSize: 10,
+            textShadow: "0 0 8px rgba(255,255,255,0.2)",
+          },
+          labelBgStyle: { fill: "transparent" },
+          labelBgPadding: [0, 0],
+          data: {
+            label: { fr: "lié à", en: "related to" },
+            relationshipType: "related",
+            color: "#818cf8",
+            lineStyle: "solid",
+            labelColor: "#ffffff",
+          },
+          sourceHandle: "bottom-source",
+          targetHandle: "top-target",
+          deletable: true,
+        };
+        setEdges((currentEdges) => addEdge(newEdge, currentEdges));
+      }
+      // Reset connection mode
+      setIsConnecting(false);
+      setConnectionSource(null);
+      setMousePosition(null);
+    }
+  }, [isConnecting, connectionSource, language, setEdges]);
+
+  /** Cancel connection creation */
+  const cancelConnection = useCallback(() => {
+    setIsConnecting(false);
+    setConnectionSource(null);
+    setMousePosition(null);
+  }, []);
+
   /** Fit all visible nodes in view. */
   const centerView = useCallback(() => {
     fitView({ padding: 0.25, duration: 500 });
@@ -587,6 +765,142 @@ export function BrainGraph({
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId],
   );
+
+  /** Handle resize start from a corner handle */
+  const handleResizeStart = useCallback((
+    e: React.PointerEvent | React.MouseEvent,
+    nodeId: string,
+    handle: string,
+    nodeWidth: number,
+    nodeHeight: number,
+    miniWidth: number,
+    miniHeight: number
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    setResizeState({
+      nodeId,
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: nodeWidth,
+      startHeight: nodeHeight,
+      startMiniWidth: miniWidth,
+      startMiniHeight: miniHeight,
+      isResizing: true,
+    });
+  }, []);
+
+  /** Handle resize move */
+  const handleResizeMove = useCallback((e: PointerEvent | MouseEvent) => {
+    if (!resizeState || !resizeState.isResizing) return;
+
+    const deltaX = e.clientX - resizeState.startX;
+    const deltaY = e.clientY - resizeState.startY;
+
+    setNodes((currentNodes) =>
+      currentNodes.map((node) => {
+        if (node.id !== resizeState.nodeId) return node;
+
+        const data = node.data as FlowNodeData;
+        let newWidth = resizeState.startWidth;
+        let newHeight = resizeState.startHeight;
+        let newMiniWidth = resizeState.startMiniWidth;
+        let newMiniHeight = resizeState.startMiniHeight;
+
+        // Calculate new dimensions based on which handle is being dragged
+        if (resizeState.handle.includes('e') || resizeState.handle.includes('se') || resizeState.handle.includes('ne')) {
+          // East handles - increase width
+          newWidth = Math.max(100, resizeState.startWidth + deltaX);
+        }
+        if (resizeState.handle.includes('w') || resizeState.handle.includes('sw') || resizeState.handle.includes('nw')) {
+          // West handles - decrease width
+          newWidth = Math.max(100, resizeState.startWidth - deltaX);
+        }
+        if (resizeState.handle.includes('s') || resizeState.handle.includes('se') || resizeState.handle.includes('sw')) {
+          // South handles - increase height
+          newHeight = Math.max(40, resizeState.startHeight + deltaY);
+        }
+        if (resizeState.handle.includes('n') || resizeState.handle.includes('ne') || resizeState.handle.includes('nw')) {
+          // North handles - decrease height
+          newHeight = Math.max(40, resizeState.startHeight - deltaY);
+        }
+
+        // Mini explanation resizes proportionally or independently
+        if (resizeState.handle === 'se' || resizeState.handle === 'sw') {
+          newMiniWidth = Math.max(100, resizeState.startMiniWidth + deltaX);
+          newMiniHeight = Math.max(30, resizeState.startMiniHeight + deltaY);
+        } else if (resizeState.handle === 'ne' || resizeState.handle === 'nw') {
+          newMiniWidth = Math.max(100, resizeState.startMiniWidth + deltaX);
+          newMiniHeight = Math.max(30, resizeState.startMiniHeight - deltaY);
+        }
+
+        return {
+          ...node,
+          data: {
+            ...data,
+            nodeWidth: newWidth,
+            nodeHeight: newHeight,
+            miniExplanationWidth: newMiniWidth,
+            miniExplanationHeight: newMiniHeight,
+          },
+        };
+      })
+    );
+  }, [resizeState, setNodes]);
+
+  /** Handle resize end */
+  const handleResizeEnd = useCallback(() => {
+    if (!resizeState) return;
+
+    // Find the updated node and call onNodeUpdate if available
+    const updatedNode = nodes.find((n) => n.id === resizeState.nodeId);
+    if (updatedNode && onNodeUpdate) {
+      const data = updatedNode.data as FlowNodeData;
+      if (data.node) {
+        onNodeUpdate({
+          ...data.node,
+          nodeWidth: data.nodeWidth,
+          nodeHeight: data.nodeHeight,
+          miniExplanationWidth: data.miniExplanationWidth,
+          miniExplanationHeight: data.miniExplanationHeight,
+        });
+      }
+    }
+
+    setResizeState(null);
+  }, [resizeState, nodes, onNodeUpdate]);
+
+  /** Add global pointer event listeners for resizing */
+  useEffect(() => {
+    if (resizeState?.isResizing) {
+      window.addEventListener('pointermove', handleResizeMove);
+      window.addEventListener('pointerup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('pointermove', handleResizeMove);
+        window.removeEventListener('pointerup', handleResizeEnd);
+      };
+    }
+  }, [resizeState?.isResizing, handleResizeMove, handleResizeEnd]);
+
+  /** Add keyboard event listeners for connection mode */
+  useEffect(() => {
+    if (!isConnecting) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cancelConnection();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isConnecting, cancelConnection]);
+
+  const nodeTypes = useMemo(() => ({
+    brain: memo((props: NodeProps) => <BrainNodeComponent {...props} onResizeStart={handleResizeStart} />),
+  }), [handleResizeStart]);
 
   const selectedBrainEdge = useMemo<BrainEdge | null>(() => {
     if (!selectedEdge) return null;
@@ -605,8 +919,23 @@ export function BrainGraph({
   }, [selectedEdge]);
 
   return (
-    <div className="brain-graph">
+    <div className={`brain-graph ${isConnecting ? "is-connecting" : ""}`}>
       <div className="brain-graph__zoom-panel">
+        {isEditing && (
+          <button
+            type="button"
+            onClick={handleAddNode}
+            className="zoom-button"
+            aria-label={language === "fr" ? "Ajouter un nœud" : "Add a node"}
+            title={language === "fr" ? "Ajouter un nœud" : "Add a node"}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+          </button>
+        )}
         <button
           type="button"
           onClick={() => zoomIn()}
@@ -650,7 +979,7 @@ export function BrainGraph({
         >
           <EdgeEditor
             edge={selectedBrainEdge}
-            isReadOnly={isReadOnly}
+            isReadOnly={false}
             onChange={(updatedEdge) => {
               updateEdgeInGraph(updatedEdge);
             }}
@@ -668,6 +997,12 @@ export function BrainGraph({
         onConnect={isEditing ? onConnect : undefined}
         onReconnect={isEditing ? onReconnect : undefined}
         onNodeClick={(_, node) => {
+          // Handle connection mode
+          if (isConnecting) {
+            handleConnectionNodeClick(node.id);
+            return;
+          }
+
           setSelectedEdgeId(null);
 
           const flowNode = nodes.find((candidate) => candidate.id === node.id);
@@ -692,8 +1027,6 @@ export function BrainGraph({
         maxZoom={1.8}
         proOptions={{ hideAttribution: true }}
       >
-        <GraphFocus focusNodeId={focusNodeId} onComplete={onFocusComplete} />
-
         <Background gap={20} size={1} color="#1e293b" />
 
         <Controls className="brain-controls" showInteractive={false} />

@@ -63,6 +63,8 @@ export interface BrainNode {
   nodeHeight?: number;
   miniExplanationWidth?: number;
   miniExplanationHeight?: number;
+  /** Custom font size for the node label (in pixels). */
+  fontSize?: number;
 }
 
 /** Connection between two nodes in the graph. */

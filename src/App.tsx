@@ -1,13 +1,15 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { BrainGraph } from "./components/BrainGraph";
 import { ConceptDrawer } from "./components/ConceptDrawer";
 import { CommandPanel, type CommandMode } from "./components/CommandPanel";
+import { SearchPanel } from "./components/SearchPanel";
 import type { BrainNode, PillarId, ProjectAnalysis, SearchResult } from "./types/brain";
 import { getNodeById } from "./utils/graphHelpers";
 import { searchBrain } from "./utils/search";
 import { analyzeProject } from "./utils/graphHelpers";
+import { useHistory, type HistoryState } from "./hooks/useHistory";
 import "./styles.css";
 
 /** Main app layout — graph, drawer, command panel. */
@@ -22,10 +24,23 @@ function AppContent() {
   const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
   const [projectAnalysis, setProjectAnalysis] =
     useState<ProjectAnalysis | null>(null);
-  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
-  const [isReadOnly, setIsReadOnly] = useState(true);
   const [updatedNode, setUpdatedNode] = useState<BrainNode | null>(null);
   const [deletedNodeId, setDeletedNodeId] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+
+  // History state for undo/redo
+  const [historyState, setHistoryState] = useState<{ nodes: any[]; edges: any[] }>({ nodes: [], edges: [] });
+  
+  const { undo, redo, canUndo, canRedo, pushState } = useHistory({
+    maxHistory: 50,
+    onStateChange: (state) => {
+      setHistoryState(state);
+      // Trigger a re-render of BrainGraph with the restored state
+      setUpdatedNode(null);
+      setDeletedNodeId("__restore__");
+      setTimeout(() => setDeletedNodeId(null), 0);
+    },
+  });
 
   const handleNodeUpdate = useCallback((updatedNode: BrainNode) => {
     setSelectedNode(updatedNode);
@@ -38,7 +53,6 @@ function AppContent() {
     setSelectedNodeId(null);
     setSelectedNode(null);
     setHighlightedNodeIds([]);
-    setFocusNodeId(null);
     setDeletedNodeId(nodeId);
   }, []);
 
@@ -46,7 +60,6 @@ function AppContent() {
   const selectNode = useCallback(
     (nodeId: string, highlight = true, nodeData?: BrainNode | null) => {
       setSelectedNodeId(nodeId);
-      setFocusNodeId(nodeId);
       const node = nodeData ?? getNodeById(nodeId) ?? null;
       setSelectedNode(node);
       if (node && highlight) {
@@ -89,21 +102,63 @@ function AppContent() {
     }
   };
 
+  const handleUndo = useCallback(() => {
+    undo();
+  }, [undo]);
+
+  const handleRedo = useCallback(() => {
+    redo();
+  }, [redo]);
+
+  // Global keyboard shortcut for search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
+      const modKey = isMac ? e.metaKey : e.ctrlKey;
+
+      if (modKey && e.key === "f") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+
+      // Escape to close search
+      if (e.key === "Escape" && isSearchOpen) {
+        setIsSearchOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchOpen]);
+
   return (
     <div className="app">
       <div className="app__floating-toolbar">
         <button
           type="button"
-          className={`mode-toggle ${isReadOnly ? "mode-toggle--read-only" : "mode-toggle--edit"}`}
-          onClick={() => setIsReadOnly((current) => !current)}
+          className="history-button"
+          onClick={handleUndo}
+          disabled={!canUndo}
+          aria-label={language === "fr" ? "Retour en arrière" : "Undo"}
+          title={language === "fr" ? "Retour en arrière (Ctrl+Z)" : "Undo (Ctrl+Z)"}
         >
-          {isReadOnly
-            ? language === "fr"
-              ? "Lecture seule"
-              : "Read-only"
-            : language === "fr"
-            ? "Édition"
-            : "Edit"}
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 7v6h6"></path>
+            <path d="M21 17a9.9 9.9 0 0 0-9.3-15.3 9.9 9.9 0 0 0-9.3 15.3"></path>
+          </svg>
+        </button>
+        <button
+          type="button"
+          className="history-button"
+          onClick={handleRedo}
+          disabled={!canRedo}
+          aria-label={language === "fr" ? "Retour en avant" : "Redo"}
+          title={language === "fr" ? "Retour en avant (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)"}
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 7v6h-6"></path>
+            <path d="M3 17a9.9 9.9 0 0 1 9.3-15.3 9.9 9.9 0 0 1 9.3 15.3"></path>
+          </svg>
         </button>
         <div className="lang-switcher">
           <button
@@ -137,21 +192,35 @@ function AppContent() {
               setSelectedNodeId(null);
               setSelectedNode(null);
               setHighlightedNodeIds([]);
-              setFocusNodeId(null);
             }}
-            focusNodeId={focusNodeId}
-            onFocusComplete={() => setFocusNodeId(null)}
-            isReadOnly={isReadOnly}
             updatedNode={updatedNode}
             deletedNodeId={deletedNodeId}
             onNodeUpdate={handleNodeUpdate}
             onNodeDelete={handleNodeDelete}
+            onHistoryStateChange={(state) => pushState(state)}
+            onNodesUpdate={(nodes) => {
+              // Update search panel with latest nodes
+              if (isSearchOpen) {
+                // Force re-render of search panel by updating a dummy state
+                setHistoryState(prev => ({ ...prev, nodes }));
+              }
+            }}
+            restoreHistoryState={historyState}
           />
         </ReactFlowProvider>
+        {isSearchOpen && (
+          <SearchPanel
+            nodes={historyState.nodes || []}
+            onClose={() => setIsSearchOpen(false)}
+            onNodeSelect={(nodeId) => {
+              selectNode(nodeId);
+              setIsSearchOpen(false);
+            }}
+          />
+        )}
 
         <ConceptDrawer
           node={selectedNode}
-          isReadOnly={isReadOnly}
           onClose={() => {
             setSelectedNodeId(null);
             setSelectedNode(null);

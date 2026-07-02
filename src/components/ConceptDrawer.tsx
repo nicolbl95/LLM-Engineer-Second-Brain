@@ -7,7 +7,6 @@ import { getNodeColor } from "../utils/graphHelpers";
 
 interface ConceptDrawerProps {
   node: BrainNode | null;
-  isReadOnly: boolean;
   onClose: () => void;
   onRelatedClick: (nodeId: string) => void;
   onSave: (node: BrainNode) => void;
@@ -17,7 +16,6 @@ interface ConceptDrawerProps {
 /** Right-side panel showing full concept details in the active language. */
 export function ConceptDrawer({
   node,
-  isReadOnly,
   onClose,
   onSave,
   onDelete,
@@ -99,154 +97,93 @@ export function ConceptDrawer({
         <section className="drawer__section">
           <div className="drawer__field-row">
             <label className="drawer__label">{language === "fr" ? "Titre" : "Title"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.title[language]}</p>
-            ) : (
-              <input
-                className="drawer__input"
-                value={currentDraft.title[language]}
-                onChange={(e) =>
-                  updateDraft({
-                    title: {
-                      ...currentDraft.title,
-                      [language]: e.target.value,
-                    },
-                  })
-                }
-              />
-            )}
-          </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Mini-explication" : "Short explanation"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.miniExplanation?.[language] ?? currentDraft.shortSummary[language]}</p>
-            ) : (
-              <textarea
-                className="drawer__textarea"
-                value={currentDraft.miniExplanation?.[language] ?? currentDraft.shortSummary[language]}
-                onChange={(e) =>
-                  updateDraft({
-                    miniExplanation: {
-                      ...(currentDraft.miniExplanation ?? currentDraft.shortSummary),
-                      [language]: e.target.value,
-                    },
-                  })
-                }
-              />
-            )}
+            <input
+              className="drawer__input"
+              value={currentDraft.title[language]}
+              onChange={(e) =>
+                updateDraft({
+                  title: {
+                    ...currentDraft.title,
+                    [language]: e.target.value,
+                  },
+                })
+              }
+            />
           </div>
 
           <div className="drawer__field-row">
             <label className="drawer__label">{language === "fr" ? "Explication" : "Explanation"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.simpleExplanation[language]}</p>
-            ) : (
-              <textarea
-                className="drawer__textarea"
-                value={currentDraft.simpleExplanation[language]}
-                onChange={(e) =>
-                  updateDraft({
-                    simpleExplanation: {
-                      ...currentDraft.simpleExplanation,
-                      [language]: e.target.value,
-                    },
-                  })
-                }
+            <textarea
+              className="drawer__textarea"
+              value={currentDraft.simpleExplanation[language]}
+              onChange={(e) =>
+                updateDraft({
+                  simpleExplanation: {
+                    ...currentDraft.simpleExplanation,
+                    [language]: e.target.value,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">{language === "fr" ? "Taille de la police" : "Font size"}</label>
+            <div className="drawer__font-size-control">
+              <button
+                type="button"
+                className="drawer__font-size-btn"
+                onClick={() => updateDraft({ fontSize: Math.max(8, (currentDraft.fontSize ?? 14) - 1) })}
+                aria-label={language === "fr" ? "Diminuer" : "Decrease"}
+              >
+                −
+              </button>
+              <input
+                type="number"
+                className="drawer__font-size-input"
+                value={currentDraft.fontSize ?? 14}
+                min={8}
+                max={72}
+                onChange={(e) => {
+                  const value = parseInt(e.target.value, 10);
+                  if (!isNaN(value) && value >= 8 && value <= 72) {
+                    updateDraft({ fontSize: value });
+                  }
+                }}
               />
-            )}
+              <button
+                type="button"
+                className="drawer__font-size-btn"
+                onClick={() => updateDraft({ fontSize: Math.min(72, (currentDraft.fontSize ?? 14) + 1) })}
+                aria-label={language === "fr" ? "Augmenter" : "Increase"}
+              >
+                +
+              </button>
+            </div>
           </div>
 
           <div className="drawer__field-row">
             <label className="drawer__label">{language === "fr" ? "Couleur du nœud" : "Node color"}</label>
-            {isReadOnly ? (
-              <div className="drawer__color-preview" style={{ backgroundColor: currentDraft.color ?? color }} />
-            ) : (
-              <input
-                type="color"
-                className="drawer__color-input"
-                value={currentDraft.color ?? color}
-                onChange={(e) => updateDraft({ color: e.target.value })}
-              />
-            )}
+            <input
+              type="color"
+              className="drawer__color-input"
+              value={currentDraft.color ?? color}
+              onChange={(e) => updateDraft({ color: e.target.value })}
+            />
           </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Largeur du nœud" : "Node width"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.nodeWidth ?? 180}px</p>
-            ) : (
-              <input
-                type="number"
-                className="drawer__input"
-                min={100}
-                value={currentDraft.nodeWidth ?? 180}
-                onChange={(e) => updateDraft({ nodeWidth: Number(e.target.value) })}
-              />
-            )}
-          </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Hauteur du nœud" : "Node height"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.nodeHeight ?? 64}px</p>
-            ) : (
-              <input
-                type="number"
-                className="drawer__input"
-                min={40}
-                value={currentDraft.nodeHeight ?? 64}
-                onChange={(e) => updateDraft({ nodeHeight: Number(e.target.value) })}
-              />
-            )}
-          </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Largeur mini-explication" : "Short explanation width"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.miniExplanationWidth ?? 180}px</p>
-            ) : (
-              <input
-                type="number"
-                className="drawer__input"
-                min={100}
-                value={currentDraft.miniExplanationWidth ?? 180}
-                onChange={(e) => updateDraft({ miniExplanationWidth: Number(e.target.value) })}
-              />
-            )}
-          </div>
-
-          <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Hauteur mini-explication" : "Short explanation height"}</label>
-            {isReadOnly ? (
-              <p className="drawer__text">{currentDraft.miniExplanationHeight ?? 60}px</p>
-            ) : (
-              <input
-                type="number"
-                className="drawer__input"
-                min={30}
-                value={currentDraft.miniExplanationHeight ?? 60}
-                onChange={(e) => updateDraft({ miniExplanationHeight: Number(e.target.value) })}
-              />
-            )}
-          </div>
-
         </section>
 
-
-        {!isReadOnly && (
-          <div className="drawer__actions">
-            <button type="button" className="drawer__action-btn drawer__action-btn--primary" onClick={handleSave}>
-              {language === "fr" ? "Enregistrer" : "Save"}
-            </button>
-            <button type="button" className="drawer__action-btn" onClick={handleCancel}>
-              {language === "fr" ? "Annuler" : "Cancel"}
-            </button>
-            <button type="button" className={`drawer__action-btn drawer__action-btn--danger ${isProtected ? "is-disabled" : ""}`} onClick={handleDelete} disabled={isProtected}>
-              {language === "fr" ? "Supprimer le nœud" : "Delete Node"}
-            </button>
-          </div>
-        )}
+        <div className="drawer__actions">
+          <button type="button" className="drawer__action-btn drawer__action-btn--primary" onClick={handleSave}>
+            {language === "fr" ? "Enregistrer" : "Save"}
+          </button>
+          <button type="button" className="drawer__action-btn" onClick={handleCancel}>
+            {language === "fr" ? "Annuler" : "Cancel"}
+          </button>
+          <button type="button" className={`drawer__action-btn drawer__action-btn--danger ${isProtected ? "is-disabled" : ""}`} onClick={handleDelete} disabled={isProtected}>
+            {language === "fr" ? "Supprimer le nœud" : "Delete Node"}
+          </button>
+        </div>
       </div>
     </aside>
   );

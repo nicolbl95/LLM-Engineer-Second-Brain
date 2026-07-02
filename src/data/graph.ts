@@ -61,6 +61,7 @@ type ConceptInput = {
   related: string[];
   mistakes: { fr: string[]; en: string[] };
   examples: { fr: string[]; en: string[] };
+  fontSize?: number;
 };
 
 /** Build a full BrainNode from compact concept input. */
@@ -84,6 +85,7 @@ function concept(c: ConceptInput): BrainNode {
     commonMistakes: c.mistakes,
     examples: c.examples,
     miniExplanation: c.short,
+    fontSize: c.fontSize,
   };
 }
 
