@@ -4,290 +4,492 @@ import { pick } from "./i18n";
 import { getRelatedNodes } from "./graphHelpers";
 import { lt } from "./i18n";
 
-/** Generate a structured two-part markdown response based on search matches and local graph data. */
-function generateMarkdownResponse(
-  query: string,
-  matches: BrainNode[],
-  language: Language
-): string {
-  const isEn = language === "en";
+type MaybeLocalizedText = {
+  fr: string;
+  en: string;
+};
+
+type ExtendedBrainNode = BrainNode & {
+  miniExplanation?: MaybeLocalizedText;
+  explanation?: MaybeLocalizedText;
+};
+
+function difficultyLabel(difficulty: BrainNode["difficulty"], language: Language) {
+  if (language === "en") return difficulty;
+
+  if (difficulty === "beginner") return "débutant";
+  if (difficulty === "intermediate") return "intermédiaire";
+  return "avancé";
+}
+
+function getNodeText(node: BrainNode, language: Language): string {
+  const extended = node as ExtendedBrainNode;
+
+  const parts = [
+    pick(node.title, language),
+    pick(node.shortSummary, language),
+    pick(node.simpleExplanation, language),
+    pick(node.deepExplanation, language),
+    extended.miniExplanation ? pick(extended.miniExplanation, language) : "",
+    extended.explanation ? pick(extended.explanation, language) : "",
+    ...node.prerequisites[language],
+    ...node.commonMistakes[language],
+    ...node.examples[language],
+  ];
+
+  return parts.filter(Boolean).join(" ");
+}
+
+function getNodeTitleById(id: string, language: Language): string {
+  const node = brainNodes.find((n) => n.id === id);
+  return node ? pick(node.title, language) : id;
+}
+
+function getEdgeLabel(edge: (typeof brainEdges)[number], language: Language): string {
+  if (!edge.label) return language === "fr" ? "lié à" : "related to";
+  return pick(edge.label, language);
+}
+
+/**
+ * Finds graph edges involving at least one matched node.
+ * This is more useful than only showing edges where both source and target matched,
+ * because it reveals how the matched concepts connect to the wider map.
+ */
+function getRelevantEdges(matches: BrainNode[]) {
   const matchedIds = new Set(matches.map((m) => m.id));
 
-  // Find edges connecting the matched nodes
-  const connectedEdges = brainEdges.filter(
-    (edge) => matchedIds.has(edge.source) && matchedIds.has(edge.target)
+  return brainEdges.filter(
+    (edge) => matchedIds.has(edge.source) || matchedIds.has(edge.target),
   );
+}
 
-  // SECTION 1: Existing Knowledge
-  let part1 = "## Part 1: What the interface already explains (Existing Knowledge)\n\n";
-
-  if (matches.length > 0) {
-    if (isEn) {
-      part1 += `The knowledge graph contains **${matches.length}** concept(s) matching your request:\n\n`;
-    } else {
-      part1 += `Le graphe de connaissances contient **${matches.length}** concept(s) correspondant à votre requête :\n\n`;
-    }
-
-    for (const node of matches) {
-      const title = isEn ? node.title.en : node.title.fr;
-      const summary = isEn ? node.shortSummary.en : node.shortSummary.fr;
-      const explanation = isEn ? node.simpleExplanation.en : node.simpleExplanation.fr;
-      const difficulty = isEn ? node.difficulty : (node.difficulty === "beginner" ? "débutant" : node.difficulty === "intermediate" ? "intermédiaire" : "avancé");
-      
-      part1 += `- **${title}** (Difficulty/Difficulté: *${difficulty}*): ${summary}\n  *Detail/Détail:* ${explanation}\n`;
-    }
-
-    part1 += "\n";
-
-    if (connectedEdges.length > 0) {
-      if (isEn) {
-        part1 += "The following connections exist between these nodes in the graph:\n\n";
-      } else {
-        part1 += "Les connexions suivantes existent entre ces nœuds dans le graphe :\n\n";
-      }
-
-      for (const edge of connectedEdges) {
-        const sourceNode = matches.find((n) => n.id === edge.source);
-        const targetNode = matches.find((n) => n.id === edge.target);
-        if (sourceNode && targetNode) {
-          const sTitle = isEn ? sourceNode.title.en : sourceNode.title.fr;
-          const tTitle = isEn ? targetNode.title.en : targetNode.title.fr;
-          const label = edge.label ? (isEn ? edge.label.en : edge.label.fr) : "";
-          const relStr = label ? ` (${label})` : "";
-          
-          if (isEn) {
-            part1 += `- **${sTitle}** points to **${tTitle}**${relStr}.\n`;
-          } else {
-            part1 += `- **${sTitle}** pointe vers **${tTitle}**${relStr}.\n`;
-          }
-        }
-      }
-    } else {
-      if (isEn) {
-        part1 += "No direct connections were detected between these specific nodes on the map.\n";
-      } else {
-        part1 += "Aucune connexion directe n'a été détectée entre ces nœuds spécifiques sur la carte.\n";
-      }
-    }
-  } else {
-    if (isEn) {
-      part1 += `The current graph does not yet explain the topic **"${query}"**.\n`;
-    } else {
-      part1 += `Le graphe de connaissances actuel n'explique pas encore le sujet **"${query}"**.\n`;
-    }
-  }
-
-  // SECTION 2: Knowledge Gaps
-  let part2 = "## Part 2: What is missing from the interface (Knowledge Gaps)\n\n";
-
-  // Analyze domain gaps
+function getMissingSuggestions(query: string, matches: BrainNode[]) {
   const lowerQuery = query.toLowerCase();
-  
-  // Domains definition
+  const matchedIds = new Set(matches.map((m) => m.id));
+
   const domains = [
     {
-      name: "RAG (Retrieval-Augmented Generation)",
-      keywords: ["rag", "retrieval", "document", "pdf", "search", "vector", "embed", "chunk", "index", "retriever", "database"],
-      standardNodes: ["chunking", "embeddings", "vector-database", "retriever", "rag", "llamaindex", "qdrant"],
-      advancedNodes: [
+      name: "RAG",
+      keywords: [
+        "rag",
+        "retrieval",
+        "document",
+        "pdf",
+        "search",
+        "vector",
+        "embedding",
+        "embed",
+        "chunk",
+        "index",
+        "retriever",
+        "database",
+        "graphrag",
+      ],
+      foundationalNodeIds: [
+        "chunking",
+        "embeddings",
+        "vector-database",
+        "retriever",
+        "rag",
+        "llamaindex",
+        "qdrant",
+      ],
+      advancedSuggestions: [
         {
-          title: { fr: "GraphRAG / Knowledge Graphs", en: "GraphRAG / Knowledge Graphs" },
-          desc: {
-            fr: "Permet de structurer des informations sous forme de graphe d'entités pour des synthèses globales.",
-            en: "Allows structuring information as an entity graph for global document synthesis.",
+          node: {
+            fr: "GraphRAG",
+            en: "GraphRAG",
+          },
+          why: {
+            fr: "Ajoute une couche graphe de connaissances au RAG pour mieux relier les entités, concepts et documents.",
+            en: "Adds a knowledge graph layer to RAG to better connect entities, concepts, and documents.",
           },
         },
         {
-          title: { fr: "Reranking (Cross-Encoder)", en: "Reranking (Cross-Encoder)" },
-          desc: {
-            fr: "Réordonne les chunks retournés par le retriever pour maximiser la pertinence du top-k.",
-            en: "Reorders retrieved chunks to maximize relevance in the top-k context.",
+          node: {
+            fr: "Reranking",
+            en: "Reranking",
+          },
+          why: {
+            fr: "Réordonne les chunks récupérés avant de les envoyer au LLM pour améliorer la pertinence.",
+            en: "Reorders retrieved chunks before sending them to the LLM to improve relevance.",
+          },
+        },
+        {
+          node: {
+            fr: "Hybrid Search",
+            en: "Hybrid Search",
+          },
+          why: {
+            fr: "Combine recherche vectorielle et recherche keyword/BM25 pour améliorer la récupération.",
+            en: "Combines vector search and keyword/BM25 search to improve retrieval.",
           },
         },
       ],
     },
     {
       name: "Agents & Workflows",
-      keywords: ["agent", "workflow", "tool", "memory", "langgraph", "plan", "reason", "react", "chat"],
-      standardNodes: ["workflow", "agent", "tool-calling", "memory", "langgraph"],
-      advancedNodes: [
+      keywords: [
+        "agent",
+        "workflow",
+        "tool",
+        "tools",
+        "memory",
+        "langgraph",
+        "plan",
+        "planning",
+        "reason",
+        "react",
+        "feedback",
+      ],
+      foundationalNodeIds: [
+        "workflow",
+        "agent",
+        "tool-calling",
+        "memory",
+        "feedback-loop",
+        "langgraph",
+      ],
+      advancedSuggestions: [
         {
-          title: { fr: "Orchestration multi-agents", en: "Multi-Agent Orchestration" },
-          desc: {
-            fr: "Coordonne plusieurs agents spécialisés travaillant ensemble sur une même tâche complexe.",
-            en: "Coordinates multiple specialized agents collaborating on a complex task.",
+          node: {
+            fr: "Orchestration multi-agents",
+            en: "Multi-agent orchestration",
+          },
+          why: {
+            fr: "Permet de coordonner plusieurs agents spécialisés dans un même système.",
+            en: "Coordinates several specialized agents inside one system.",
           },
         },
         {
-          title: { fr: "Auto-correction (Self-Reflection)", en: "Self-Reflection" },
-          desc: {
-            fr: "Permet à un agent de critiquer ses propres réponses et de corriger ses erreurs de façon autonome.",
-            en: "Enables an agent to critique its own answers and fix mistakes autonomously.",
+          node: {
+            fr: "Human-in-the-loop",
+            en: "Human-in-the-loop",
+          },
+          why: {
+            fr: "Ajoute des points de validation humaine dans les workflows ou agents.",
+            en: "Adds human validation points inside workflows or agents.",
           },
         },
       ],
     },
     {
       name: "Fine-tuning",
-      keywords: ["fine", "tune", "tuning", "lora", "qlora", "peft", "train", "adapt"],
-      standardNodes: ["fine-tuning", "lora"],
-      advancedNodes: [
+      keywords: [
+        "fine",
+        "fine-tuning",
+        "finetuning",
+        "tune",
+        "tuning",
+        "lora",
+        "qlora",
+        "peft",
+        "train",
+        "training",
+        "adapt",
+      ],
+      foundationalNodeIds: ["fine-tuning", "lora"],
+      advancedSuggestions: [
         {
-          title: { fr: "DPO (Direct Preference Optimization)", en: "DPO (Direct Preference Optimization)" },
-          desc: {
-            fr: "Méthode d'alignement direct sans modèle de récompense intermédiaire complexe.",
-            en: "Direct alignment method without requiring a complex separate reward model.",
+          node: {
+            fr: "QLoRA",
+            en: "QLoRA",
+          },
+          why: {
+            fr: "Permet de fine-tuner des modèles plus grands avec moins de mémoire GPU.",
+            en: "Allows fine-tuning larger models with less GPU memory.",
           },
         },
         {
-          title: { fr: "Quantification de modèle", en: "Model Quantization" },
-          desc: {
-            fr: "Réduit l'empreinte mémoire d'un modèle (ex: de FP16 à INT4) pour l'exécuter sur GPU grand public.",
-            en: "Reduces a model's memory footprint (e.g. FP16 to INT4) to run on consumer GPUs.",
+          node: {
+            fr: "DPO",
+            en: "DPO",
+          },
+          why: {
+            fr: "Méthode d’alignement basée sur les préférences sans reward model complexe.",
+            en: "Preference-based alignment method without a complex reward model.",
           },
         },
       ],
     },
     {
       name: "Evaluation",
-      keywords: ["eval", "measure", "test", "benchmark", "score", "ragas", "langfuse", "feedback"],
-      standardNodes: ["evaluation", "ragas", "langfuse", "feedback-loop"],
-      advancedNodes: [
+      keywords: [
+        "eval",
+        "evaluation",
+        "measure",
+        "test",
+        "benchmark",
+        "score",
+        "ragas",
+        "langfuse",
+        "feedback",
+        "judge",
+      ],
+      foundationalNodeIds: ["evaluation", "ragas", "langfuse", "feedback-loop"],
+      advancedSuggestions: [
         {
-          title: { fr: "LLM-as-a-judge", en: "LLM-as-a-judge" },
-          desc: {
-            fr: "Utilise un LLM puissant comme évaluateur pour noter la fidélité et la pertinence des réponses.",
-            en: "Uses a powerful LLM as an evaluator to score correctness and prompt alignment.",
+          node: {
+            fr: "LLM-as-a-judge",
+            en: "LLM-as-a-judge",
+          },
+          why: {
+            fr: "Utilise un LLM comme évaluateur pour noter la qualité, fidélité ou pertinence des réponses.",
+            en: "Uses an LLM as an evaluator to score answer quality, faithfulness, or relevance.",
           },
         },
       ],
     },
     {
       name: "Deployment",
-      keywords: ["deploy", "fastapi", "docker", "pages", "spaces", "api", "host", "port"],
-      standardNodes: ["fastapi", "docker", "github-pages", "huggingface-spaces", "portfolio-project"],
-      advancedNodes: [
+      keywords: [
+        "deploy",
+        "deployment",
+        "fastapi",
+        "docker",
+        "pages",
+        "spaces",
+        "api",
+        "host",
+        "hosting",
+        "server",
+      ],
+      foundationalNodeIds: [
+        "fastapi",
+        "docker",
+        "github-pages",
+        "huggingface-spaces",
+        "portfolio-project",
+      ],
+      advancedSuggestions: [
         {
-          title: { fr: "Serving optimisé (vLLM / Ollama)", en: "Optimized Serving (vLLM / Ollama)" },
-          desc: {
-            fr: "Moteurs d'inférence haute performance avec continuous batching pour maximiser le débit.",
-            en: "High-performance inference engines with continuous batching to maximize throughput.",
+          node: {
+            fr: "CI/CD",
+            en: "CI/CD",
+          },
+          why: {
+            fr: "Automatise les tests, builds et déploiements du projet.",
+            en: "Automates tests, builds, and deployments for the project.",
+          },
+        },
+        {
+          node: {
+            fr: "Monitoring production",
+            en: "Production monitoring",
+          },
+          why: {
+            fr: "Surveille les erreurs, coûts, latence et comportements du système en production.",
+            en: "Tracks errors, costs, latency, and system behavior in production.",
           },
         },
       ],
     },
   ];
 
-  // Find relevant domain
-  const activeDomain = domains.find((d) =>
-    d.keywords.some((keyword) => lowerQuery.includes(keyword))
+  const activeDomain = domains.find((domain) =>
+    domain.keywords.some((keyword) => lowerQuery.includes(keyword)),
   );
 
-  if (activeDomain) {
-    const missingNodes = activeDomain.standardNodes.filter((id) => !matchedIds.has(id));
-    
-    if (missingNodes.length > 0) {
-      if (isEn) {
-        part2 += `Your query is related to **${activeDomain.name}**. The current graph has some missing foundational elements in this area:\n\n`;
-      } else {
-        part2 += `Votre requête concerne le domaine **${activeDomain.name}**. Le graphe présente quelques lacunes fondamentales dans cette zone :\n\n`;
-      }
-
-      for (const id of missingNodes) {
-        const fullNode = brainNodes.find((n) => n.id === id);
-        if (fullNode) {
-          const title = isEn ? fullNode.title.en : fullNode.title.fr;
-          const short = isEn ? fullNode.shortSummary.en : fullNode.shortSummary.fr;
-          if (isEn) {
-            part2 += `- **Suggested Node:** **${title}** — ${short}\n`;
-          } else {
-            part2 += `- **Nœud suggéré :** **${title}** — ${short}\n`;
-          }
-        }
-      }
-
-      part2 += "\n";
-      
-      // Suggest edges/connections
-      if (isEn) {
-        part2 += `**Suggested connections:**\n`;
-      } else {
-        part2 += `**Connexions suggérées :**\n`;
-      }
-
-      for (const id of missingNodes) {
-        const fullNode = brainNodes.find((n) => n.id === id);
-        if (fullNode) {
-          const title = isEn ? fullNode.title.en : fullNode.title.fr;
-          if (fullNode.relatedConcepts.length > 0) {
-            const relNames = fullNode.relatedConcepts
-              .map((rid) => brainNodes.find((n) => n.id === rid))
-              .filter(Boolean)
-              .map((n) => (isEn ? n!.title.en : n!.title.fr));
-            
-            if (relNames.length > 0) {
-              if (isEn) {
-                part2 += `- Connect **${title}** with existing nodes like: *${relNames.join(", ")}*.\n`;
-              } else {
-                part2 += `- Connecter **${title}** avec les nœuds existants comme : *${relNames.join(", ")}*.\n`;
-              }
-            }
-          }
-        }
-      }
-      
-      if (isEn) {
-        part2 += `\n**Why this improves the brain:** These additions will bridge your query with the rest of the learning roadmap and build a complete foundation.\n`;
-      } else {
-        part2 += `\n**Pourquoi cela améliore le cerveau :** Ces ajouts feront le lien entre votre requête et le reste de la feuille de route d'apprentissage pour bâtir une base solide.\n`;
-      }
-
-    } else {
-      // No standard nodes are missing. Suggest advanced ones.
-      if (isEn) {
-        part2 += `You have fully covered the foundational elements of **${activeDomain.name}**! Here are some advanced gaps to expand your learning:\n\n`;
-      } else {
-        part2 += `Vous couvrez déjà l'ensemble des fondations de **${activeDomain.name}** ! Voici des concepts avancés à explorer pour enrichir votre second cerveau :\n\n`;
-      }
-
-      for (const adv of activeDomain.advancedNodes) {
-        const title = isEn ? adv.title.en : adv.title.fr;
-        const desc = isEn ? adv.desc.en : adv.desc.fr;
-        if (isEn) {
-          part2 += `- **Advanced Concept:** **${title}** — ${desc}\n`;
-        } else {
-          part2 += `- **Concept avancé :** **${title}** — ${desc}\n`;
-        }
-      }
-
-      part2 += "\n";
-      
-      if (isEn) {
-        part2 += `**Suggested connections:**\n- Connect these advanced concepts to the main **${activeDomain.name}** concepts already on your map.\n\n**Why this improves the brain:** It elevates your knowledge base to production-grade architectures.`;
-      } else {
-        part2 += `**Connexions suggérées :**\n- Relier ces concepts avancés aux concepts principaux de **${activeDomain.name}** déjà présents sur votre carte.\n\n**Pourquoi cela améliore le cerveau :** Cela élève votre base de connaissances vers des architectures adaptées à la production.`;
-      }
-    }
-  } else {
-    // No specific domain match
-    if (isEn) {
-      part2 += "No major gap was detected in specific pillars, but you can expand this general AI topic by considering these advanced areas:\n\n";
-      part2 += "- **Guardrails / Safety Alignment:** Adding safety checks (like Llama Guard or NeMo Guardrails) between user prompts and the model.\n";
-      part2 += "- **Multimodal Integration:** Incorporating Vision or Audio embeddings and models.\n\n";
-      part2 += "**Why this improves the brain:** Adding guardrails or multimodal capabilities prepares your knowledge base for real-world enterprise applications.";
-    } else {
-      part2 += "Aucune lacune majeure n'a été détectée dans les piliers spécifiques, mais vous pouvez élargir ce sujet général d'IA en considérant ces domaines avancés :\n\n";
-      part2 += "- **Guardrails / Alignement de sécurité :** Ajouter des contrôles de sécurité (comme Llama Guard ou NeMo Guardrails) entre les requêtes de l'utilisateur et le modèle.\n";
-      part2 += "- **Intégration multimodale :** Prendre en charge des embeddings et modèles Vision ou Audio.\n\n";
-      part2 += "**Pourquoi cela améliore le cerveau :** L'ajout de guardrails ou de capacités multimodales prépare votre base de connaissances pour des applications d'entreprise concrètes.";
-    }
+  if (!activeDomain) {
+    return {
+      domainName: null,
+      missingExistingNodes: [] as BrainNode[],
+      suggestedNewNodes: [
+        {
+          node: {
+            fr: "Concept dédié",
+            en: "Dedicated concept",
+          },
+          why: {
+            fr: `Créer un nœud dédié pour « ${query} » si ce sujet devient important dans ton apprentissage.`,
+            en: `Create a dedicated node for “${query}” if this topic becomes important in your learning.`,
+          },
+        },
+        {
+          node: {
+            fr: "Exemple pratique",
+            en: "Practical example",
+          },
+          why: {
+            fr: "Ajouter un exemple concret aiderait à relier ce sujet à un projet portfolio.",
+            en: "Adding a concrete example would connect this topic to a portfolio project.",
+          },
+        },
+      ],
+    };
   }
 
-  return `${part1}\n\n${part2}`;
+  const missingExistingNodes = activeDomain.foundationalNodeIds
+    .filter((id) => !matchedIds.has(id))
+    .map((id) => brainNodes.find((node) => node.id === id))
+    .filter((node): node is BrainNode => Boolean(node));
+
+  return {
+    domainName: activeDomain.name,
+    missingExistingNodes,
+    suggestedNewNodes: activeDomain.advancedSuggestions,
+  };
+}
+
+/**
+ * Generate a structured two-part markdown response based only on local graph data.
+ *
+ * Required output shape:
+ * 1. Part 1: existing graph knowledge
+ * 2. Part 2: missing graph knowledge / suggestions
+ */
+function generateMarkdownResponse(
+  query: string,
+  matches: BrainNode[],
+  language: Language,
+): string {
+  const isEn = language === "en";
+  const relevantEdges = getRelevantEdges(matches);
+
+  let part1 =
+    "## Part 1: What the interface already explains (Existing Knowledge)\n\n";
+
+  if (matches.length > 0) {
+    part1 += isEn
+      ? `The current graph contains **${matches.length}** node(s) related to “${query}”.\n\n`
+      : `Le graphe actuel contient **${matches.length}** nœud(s) lié(s) à « ${query} ».\n\n`;
+
+    part1 += isEn
+      ? "**Existing related nodes:**\n\n"
+      : "**Nœuds existants liés :**\n\n";
+
+    for (const node of matches) {
+      const title = pick(node.title, language);
+      const summary = pick(node.shortSummary, language);
+      const explanation = getNodeText(node, language);
+
+      part1 += `- **${title}**`;
+      part1 += ` — ${summary}`;
+
+      if (explanation && explanation !== summary) {
+        part1 += `\n  - ${isEn ? "Current explanation" : "Explication actuelle"}: ${explanation}`;
+      }
+
+      part1 += `\n  - ${isEn ? "Difficulty" : "Difficulté"}: ${difficultyLabel(
+        node.difficulty,
+        language,
+      )}\n`;
+    }
+
+    part1 += "\n";
+
+    if (relevantEdges.length > 0) {
+      part1 += isEn
+        ? "**Existing connections on the map:**\n\n"
+        : "**Connexions existantes sur la carte :**\n\n";
+
+      for (const edge of relevantEdges) {
+        const sourceTitle = getNodeTitleById(edge.source, language);
+        const targetTitle = getNodeTitleById(edge.target, language);
+        const label = getEdgeLabel(edge, language);
+
+        part1 += `- **${sourceTitle}** → **${targetTitle}**`;
+        if (label) part1 += ` (${label})`;
+        part1 += "\n";
+      }
+    } else {
+      part1 += isEn
+        ? "No direct existing connection involving these matched nodes was found on the map.\n"
+        : "Aucune connexion directe impliquant ces nœuds correspondants n’a été trouvée sur la carte.\n";
+    }
+  } else {
+    part1 += isEn
+      ? `The current graph does not yet explain **“${query}”**. No existing node clearly matches this topic.\n`
+      : `Le graphe actuel n’explique pas encore clairement **« ${query} »**. Aucun nœud existant ne correspond directement à ce sujet.\n`;
+  }
+
+  const gaps = getMissingSuggestions(query, matches);
+
+  let part2 =
+    "\n\n## Part 2: What is missing from the interface (Knowledge Gaps)\n\n";
+
+  if (gaps.domainName) {
+    part2 += isEn
+      ? `This topic appears related to the **${gaps.domainName}** area.\n\n`
+      : `Ce sujet semble lié au domaine **${gaps.domainName}**.\n\n`;
+  }
+
+  if (gaps.missingExistingNodes.length > 0) {
+    part2 += isEn
+      ? "**Existing nodes that should be connected or surfaced more clearly:**\n\n"
+      : "**Nœuds déjà présents qui devraient être mieux connectés ou mis en avant :**\n\n";
+
+    for (const node of gaps.missingExistingNodes) {
+      part2 += `- **${pick(node.title, language)}** — ${pick(
+        node.shortSummary,
+        language,
+      )}\n`;
+    }
+
+    part2 += "\n";
+  }
+
+  if (gaps.suggestedNewNodes.length > 0) {
+    part2 += isEn
+      ? "**Potential new nodes to add:**\n\n"
+      : "**Nouveaux nœuds potentiels à ajouter :**\n\n";
+
+    for (const suggestion of gaps.suggestedNewNodes) {
+      part2 += `- **${pick(suggestion.node, language)}** — ${pick(
+        suggestion.why,
+        language,
+      )}\n`;
+    }
+
+    part2 += "\n";
+  }
+
+  if (matches.length > 0) {
+    part2 += isEn
+      ? "**Potential new edges/connections:**\n\n"
+      : "**Nouvelles connexions potentielles :**\n\n";
+
+    const bestMatch = matches[0];
+    const bestTitle = pick(bestMatch.title, language);
+
+    if (gaps.missingExistingNodes.length > 0) {
+      for (const missing of gaps.missingExistingNodes.slice(0, 4)) {
+        part2 += `- **${bestTitle}** → **${pick(
+          missing.title,
+          language,
+        )}** (${isEn ? "related to / depends on" : "lié à / dépend de"})\n`;
+      }
+    } else if (gaps.suggestedNewNodes.length > 0) {
+      for (const suggestion of gaps.suggestedNewNodes.slice(0, 3)) {
+        part2 += `- **${bestTitle}** → **${pick(
+          suggestion.node,
+          language,
+        )}** (${isEn ? "could be extended with" : "pourrait être enrichi par"})\n`;
+      }
+    } else {
+      part2 += isEn
+        ? "- No obvious new edge was detected from the current query.\n"
+        : "- Aucune nouvelle connexion évidente n’a été détectée à partir de cette requête.\n";
+    }
+  } else {
+    part2 += isEn
+      ? "**Suggested starting point:** Create a new dedicated node for this topic, then connect it to the closest existing pillar.\n"
+      : "**Point de départ suggéré :** Créer un nouveau nœud dédié à ce sujet, puis le connecter au pilier existant le plus proche.\n";
+  }
+
+  part2 += "\n";
+
+  part2 += isEn
+    ? "**Why this improves the second brain:** These additions make the map more complete, reduce isolated concepts, and create clearer learning paths between ideas.\n"
+    : "**Pourquoi cela améliore le second cerveau :** Ces ajouts rendent la carte plus complète, réduisent les concepts isolés et créent des chemins d’apprentissage plus clairs entre les idées.\n";
+
+  return `${part1}${part2}`;
 }
 
 /** Collect all searchable text for a node. */
 function getSearchableTexts(node: BrainNode): string[] {
+  const extended = node as ExtendedBrainNode;
+
   const texts: string[] = [
     node.title.fr,
     node.title.en,
@@ -297,6 +499,10 @@ function getSearchableTexts(node: BrainNode): string[] {
     node.simpleExplanation.en,
     node.deepExplanation.fr,
     node.deepExplanation.en,
+    extended.miniExplanation?.fr ?? "",
+    extended.miniExplanation?.en ?? "",
+    extended.explanation?.fr ?? "",
+    extended.explanation?.en ?? "",
     ...node.prerequisites.fr,
     ...node.prerequisites.en,
     ...node.commonMistakes.fr,
@@ -304,14 +510,17 @@ function getSearchableTexts(node: BrainNode): string[] {
     ...node.examples.fr,
     ...node.examples.en,
   ];
+
   if (node.pillar) {
     texts.push(node.pillar.fr, node.pillar.en);
   }
+
   for (const relId of node.relatedConcepts) {
     const rel = brainNodes.find((n) => n.id === relId);
     if (rel) texts.push(rel.title.fr, rel.title.en);
   }
-  return texts.map((t) => t.toLowerCase());
+
+  return texts.filter(Boolean).map((t) => t.toLowerCase());
 }
 
 /** Score how well a node matches a query. */
@@ -329,20 +538,23 @@ function scoreNode(node: BrainNode, query: string): number {
   if (titleFr.includes(q) || titleEn.includes(q)) score += 50;
 
   const tokens = q.split(/\s+/).filter(Boolean);
+
   for (const token of tokens) {
     if (titleFr.includes(token) || titleEn.includes(token)) score += 20;
+
     for (const text of getSearchableTexts(node)) {
       if (text.includes(token)) score += 5;
     }
   }
 
-  // Partial topic aliases (GraphRAG, BRAG → RAG)
   if (q.includes("graphrag") || q.includes("brag")) {
     if (node.id === "rag" || titleEn.includes("rag")) score += 30;
   }
-  if (q.includes("machine learning") || q.includes("ml")) {
-    if (node.pillarId === "ml-foundations" || node.id === "ml-foundations")
+
+  if (q.includes("machine learning") || q === "ml") {
+    if (node.pillarId === "ml-foundations" || node.id === "ml-foundations") {
       score += 25;
+    }
   }
 
   return score;
@@ -352,11 +564,14 @@ function scoreNode(node: BrainNode, query: string): number {
 function levenshtein(a: string, b: string): number {
   const m = a.length;
   const n = b.length;
+
   const dp: number[][] = Array.from({ length: m + 1 }, () =>
     Array(n + 1).fill(0),
   );
+
   for (let i = 0; i <= m; i++) dp[i][0] = i;
   for (let j = 0; j <= n; j++) dp[0][j] = j;
+
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       dp[i][j] =
@@ -365,6 +580,7 @@ function levenshtein(a: string, b: string): number {
           : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
     }
   }
+
   return dp[m][n];
 }
 
@@ -374,6 +590,7 @@ function levenshtein(a: string, b: string): number {
  */
 export function searchBrain(query: string, _language: Language): SearchResult {
   const trimmed = query.trim();
+
   if (!trimmed) {
     return {
       type: "none",
@@ -382,6 +599,7 @@ export function searchBrain(query: string, _language: Language): SearchResult {
       relatedNodes: [],
       summary: lt("", ""),
       suggestions: [],
+      markdownResponse: lt("", ""),
     };
   }
 
@@ -411,10 +629,10 @@ export function searchBrain(query: string, _language: Language): SearchResult {
     })
     .slice(0, 5);
 
-  const markdownResponse = {
-    fr: generateMarkdownResponse(trimmed, matches, "fr"),
-    en: generateMarkdownResponse(trimmed, matches, "en"),
-  };
+  const markdownResponse = lt(
+    generateMarkdownResponse(trimmed, matches, "fr"),
+    generateMarkdownResponse(trimmed, matches, "en"),
+  );
 
   if (bestMatch && scored[0].score >= 25) {
     return {
@@ -424,8 +642,14 @@ export function searchBrain(query: string, _language: Language): SearchResult {
       matches,
       relatedNodes,
       summary: lt(
-        `Le cerveau connaît « ${pick(bestMatch.title, "fr")} » : ${pick(bestMatch.shortSummary, "fr")}`,
-        `The brain knows « ${pick(bestMatch.title, "en")} »: ${pick(bestMatch.shortSummary, "en")}`,
+        `Le cerveau connaît « ${pick(bestMatch.title, "fr")} » : ${pick(
+          bestMatch.shortSummary,
+          "fr",
+        )}`,
+        `The brain knows “${pick(bestMatch.title, "en")}”: ${pick(
+          bestMatch.shortSummary,
+          "en",
+        )}`,
       ),
       suggestions,
       markdownResponse,
@@ -437,10 +661,12 @@ export function searchBrain(query: string, _language: Language): SearchResult {
       .slice(0, 3)
       .map((n) => pick(n.title, "fr"))
       .join(", ");
+
     const mentionEn = matches
       .slice(0, 3)
       .map((n) => pick(n.title, "en"))
       .join(", ");
+
     return {
       type: "partial",
       query: trimmed,
@@ -449,7 +675,7 @@ export function searchBrain(query: string, _language: Language): SearchResult {
       relatedNodes,
       summary: lt(
         `« ${trimmed} » est mentionné indirectement dans le graphe.`,
-        `« ${trimmed} » is indirectly mentioned in the graph.`,
+        `“${trimmed}” is indirectly mentioned in the graph.`,
       ),
       mentionDetails: lt(
         `Mentionné près de : ${mentionFr}. Crée un nœud dédié plus tard pour approfondir.`,
@@ -467,7 +693,7 @@ export function searchBrain(query: string, _language: Language): SearchResult {
     relatedNodes: [],
     summary: lt(
       `Aucune connaissance sur « ${trimmed} » n'existe encore dans ce cerveau.`,
-      `No knowledge about « ${trimmed} » exists in this brain yet.`,
+      `No knowledge about “${trimmed}” exists in this brain yet.`,
     ),
     suggestions,
     markdownResponse,
