@@ -149,12 +149,6 @@ function BrainNodeComponent({ data, selected }: NodeProps) {
         <div className="brain-node__mini">{miniText}</div>
       )}
 
-      {node.type === "concept" && node.difficulty && (
-        <span className="brain-node__diff">
-          {node.difficulty.charAt(0).toUpperCase()}
-        </span>
-      )}
-
       <Handle
         id="bottom-target"
         type="target"
@@ -387,6 +381,9 @@ export function BrainGraph({
           data: {
             ...data,
             label: pick(brainNode.title, language),
+            miniExplanation: brainNode.miniExplanation
+              ? pick(brainNode.miniExplanation, language)
+              : "",
             highlighted: isHighlighted,
             dimmed:
               hasHighlight &&

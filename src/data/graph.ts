@@ -83,6 +83,7 @@ function concept(c: ConceptInput): BrainNode {
     relatedConcepts: c.related,
     commonMistakes: c.mistakes,
     examples: c.examples,
+    miniExplanation: c.short,
   };
 }
 
@@ -935,6 +936,10 @@ const centralNode: BrainNode = {
   relatedConcepts: [],
   commonMistakes: ll([], []),
   examples: ll([], []),
+  miniExplanation: lt(
+    "Centre du graphe — parcours GenAI structuré.",
+    "Graph center — structured GenAI journey.",
+  ),
 };
 
 /** Eight pillar nodes arranged around the center. */
@@ -975,6 +980,10 @@ const pillarNodes: BrainNode[] = (
   relatedConcepts: [],
   commonMistakes: ll([], []),
   examples: ll([], []),
+  miniExplanation: lt(
+    `Pilier : ${pillarMeta[id].title.fr}`,
+    `Pillar: ${pillarMeta[id].title.en}`,
+  ),
 }));
 
 export const brainNodes: BrainNode[] = [
