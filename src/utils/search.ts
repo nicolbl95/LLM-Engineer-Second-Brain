@@ -331,12 +331,78 @@ function getMissingSuggestions(query: string, matches: BrainNode[]) {
   };
 }
 
+function generateGraphExpansionPlan(
+  query: string,
+  matches: BrainNode[],
+  language: Language,
+): string {
+  const isEn = language === "en";
+  const gaps = getMissingSuggestions(query, matches);
+  const bestMatch = matches[0];
+
+  let part3 =
+    "\n\n## Part 3: Suggested new nodes and tree connections (Graph Expansion Plan)\n\n";
+
+  const rootTitle = bestMatch
+    ? pick(bestMatch.title, language)
+    : isEn
+      ? "New standalone branch"
+      : "Nouvelle branche indépendante";
+
+  const suggestedNodes = gaps.suggestedNewNodes.slice(0, 5);
+  const missingExistingNodes = gaps.missingExistingNodes.slice(0, 4);
+
+  if (suggestedNodes.length === 0 && missingExistingNodes.length === 0) {
+    part3 += isEn
+      ? "No clear expansion plan could be generated from the current graph.\n"
+      : "Aucun plan d’expansion clair n’a pu être généré à partir du graphe actuel.\n";
+
+    return part3;
+  }
+
+  part3 += `[ ${rootTitle} ]\n`;
+  part3 += "   │\n";
+
+  missingExistingNodes.forEach((node, index) => {
+    const hasMoreSuggestions = suggestedNodes.length > 0;
+    const isLast =
+      index === missingExistingNodes.length - 1 && !hasMoreSuggestions;
+    const connector = isLast ? "└──" : "├──";
+    const title = pick(node.title, language);
+
+    part3 += `   ${connector} [ ${title} ] (${
+      isEn ? "existing node to connect better" : "nœud existant à mieux connecter"
+    })\n`;
+    part3 += `   │      └── ${
+      isEn ? "Suggested connection" : "Connexion suggérée"
+    }: ${rootTitle} → ${title}\n`;
+  });
+
+  suggestedNodes.forEach((suggestion, index) => {
+    const isLast = index === suggestedNodes.length - 1;
+    const connector = isLast ? "└──" : "├──";
+    const title = pick(suggestion.node, language);
+    const why = pick(suggestion.why, language);
+
+    part3 += `   ${connector} [ ${title} ] (${
+      isEn ? "new node" : "nouveau nœud"
+    })\n`;
+    part3 += `          ├── ${isEn ? "Why" : "Pourquoi"}: ${why}\n`;
+    part3 += `          └── ${
+      isEn ? "Suggested connection" : "Connexion suggérée"
+    }: ${rootTitle} → ${title}\n`;
+  });
+
+  return part3;
+}
+
 /**
- * Generate a structured two-part markdown response based only on local graph data.
+ * Generate a structured three-part markdown response based only on local graph data.
  *
  * Required output shape:
  * 1. Part 1: existing graph knowledge
  * 2. Part 2: missing graph knowledge / suggestions
+ * 3. Part 3: suggested new nodes and tree connections
  */
 function generateMarkdownResponse(
   query: string,
@@ -367,7 +433,9 @@ function generateMarkdownResponse(
       part1 += ` — ${summary}`;
 
       if (explanation && explanation !== summary) {
-        part1 += `\n  - ${isEn ? "Current explanation" : "Explication actuelle"}: ${explanation}`;
+        part1 += `\n  - ${
+          isEn ? "Current explanation" : "Explication actuelle"
+        }: ${explanation}`;
       }
 
       part1 += `\n  - ${isEn ? "Difficulty" : "Difficulté"}: ${difficultyLabel(
@@ -483,7 +551,9 @@ function generateMarkdownResponse(
     ? "**Why this improves the second brain:** These additions make the map more complete, reduce isolated concepts, and create clearer learning paths between ideas.\n"
     : "**Pourquoi cela améliore le second cerveau :** Ces ajouts rendent la carte plus complète, réduisent les concepts isolés et créent des chemins d’apprentissage plus clairs entre les idées.\n";
 
-  return `${part1}${part2}`;
+  const part3 = generateGraphExpansionPlan(query, matches, language);
+
+  return `${part1}${part2}${part3}`;
 }
 
 /** Collect all searchable text for a node. */

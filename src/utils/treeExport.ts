@@ -1,84 +1,148 @@
 import type { BrainNode, BrainEdge } from "../types/brain";
 
 /**
- * Generate a tree-style text export of the brain graph.
- * Uses box-drawing characters to show hierarchy.
+ * Generate a flexible plaintext export of the brain graph.
+ *
+ * This version does NOT require a single central/root node.
+ * It supports:
+ * - isolated nodes
+ * - multiple disconnected trees
+ * - parent-child connections from any source node
  */
 export function generateTreeExport(
   nodes: BrainNode[],
   edges: BrainEdge[],
   language: "fr" | "en",
 ): string {
-  const nodeMap = new Map<string, BrainNode>();
-  const childrenMap = new Map<string, BrainNode[]>();
-
-  // Build node map.
-  nodes.forEach((node) => {
-    nodeMap.set(node.id, node);
-    childrenMap.set(node.id, []);
-  });
-
-  // Build parent-child relationships based on edges.
-  edges.forEach((edge) => {
-    const children = childrenMap.get(edge.source);
-    const targetNode = nodeMap.get(edge.target);
-
-    if (children && targetNode) {
-      children.push(targetNode);
-    }
-  });
-
-  // Find the central node/root.
-  const centralNode = nodes.find((node) => node.type === "central");
-
-  if (!centralNode) {
+  if (nodes.length === 0) {
     return language === "fr"
-      ? "Aucun nœud central trouvé"
-      : "No central node found";
+      ? "Aucun nœud trouvé"
+      : "No nodes found";
   }
 
-  const lines: string[] = [];
-  const visited = new Set<string>();
+  const nodeMap = new Map<string, BrainNode>();
+  const childrenMap = new Map<string, BrainNode[]>();
+  const hasParent = new Set<string>();
 
-  function buildTreeNode(
+  // Register every node.
+  for (const node of nodes) {
+    nodeMap.set(node.id, node);
+    childrenMap.set(node.id, []);
+  }
+
+  // Build parent -> children relationships from edges.
+  for (const edge of edges) {
+    const sourceNode = nodeMap.get(edge.source);
+    const targetNode = nodeMap.get(edge.target);
+
+    if (!sourceNode || !targetNode) continue;
+
+    childrenMap.get(edge.source)?.push(targetNode);
+    hasParent.add(edge.target);
+  }
+
+  const getTitle = (node: BrainNode): string => {
+    return node.title[language] || node.title.fr || node.title.en || node.id;
+  };
+
+  const isIsolated = (node: BrainNode): boolean => {
+    const children = childrenMap.get(node.id) ?? [];
+    return !hasParent.has(node.id) && children.length === 0;
+  };
+
+  const isolatedNodes = nodes.filter(isIsolated);
+
+  // A root is any node that has children but no parent.
+  // This allows multiple independent trees.
+  const rootNodes = nodes.filter((node) => {
+    const children = childrenMap.get(node.id) ?? [];
+    return !hasParent.has(node.id) && children.length > 0;
+  });
+
+  // Fallback for cycles or unusual graphs:
+  // if every connected node has a parent, pick nodes with children as roots.
+  const fallbackRoots =
+    rootNodes.length > 0
+      ? rootNodes
+      : nodes.filter((node) => (childrenMap.get(node.id) ?? []).length > 0);
+
+  const lines: string[] = [];
+  const globallyVisited = new Set<string>();
+
+  function buildTree(
     node: BrainNode,
     prefix: string,
     isLast: boolean,
     depth: number,
-  ): void {
-    // Prevent infinite loops from cycles.
-    if (visited.has(node.id)) return;
-
-    visited.add(node.id);
-
-    const title = node.title[language] || node.title.fr || node.title.en;
-    const connector = isLast ? "└── " : "├── ";
-
-    if (depth === 0) {
-      lines.push(
-        `[${language === "fr" ? "NŒUD CENTRAL" : "CENTRAL NODE"}] : ${title}`,
-      );
-    } else if (node.type === "pillar") {
-      lines.push(
-        `${prefix}${connector}[${language === "fr" ? "BRANCHE" : "BRANCH"}] : ${title}`,
-      );
-    } else {
-      lines.push(`${prefix}${connector}${title}`);
+    localVisited: Set<string>,
+  ) {
+    if (localVisited.has(node.id)) {
+      const connector = isLast ? "└── " : "├── ";
+      lines.push(`${prefix}${connector}[ ${getTitle(node)} ] (cycle)`);
+      return;
     }
 
-    const children = childrenMap.get(node.id) || [];
+    localVisited.add(node.id);
+    globallyVisited.add(node.id);
+
+    if (depth === 0) {
+      lines.push(`[ ${getTitle(node)} ]`);
+    } else {
+      const connector = isLast ? "└── " : "├── ";
+      lines.push(`${prefix}${connector}[ ${getTitle(node)} ]`);
+    }
+
+    const children = childrenMap.get(node.id) ?? [];
+    const nextPrefix = depth === 0
+      ? "   "
+      : prefix + (isLast ? "    " : "│   ");
+
+    if (children.length > 0 && depth === 0) {
+      lines.push("   │");
+    }
 
     children.forEach((child, index) => {
       const isLastChild = index === children.length - 1;
-      const nextPrefix = prefix + (isLast ? "    " : "│   ");
-
-      buildTreeNode(child, nextPrefix, isLastChild, depth + 1);
+      buildTree(
+        child,
+        nextPrefix,
+        isLastChild,
+        depth + 1,
+        new Set(localVisited),
+      );
     });
   }
 
-  buildTreeNode(centralNode, "", true, 0);
+  // First export isolated nodes.
+  for (const node of isolatedNodes) {
+    lines.push(`[ ${getTitle(node)} ] (${language === "fr" ? "Isolé à gauche" : "Isolated on the left"})`);
+    lines.push("");
+    globallyVisited.add(node.id);
+  }
 
-  return lines.join("\n");
+  // Then export all disconnected trees.
+  fallbackRoots.forEach((root, index) => {
+    if (globallyVisited.has(root.id) && isIsolated(root)) return;
+
+    buildTree(root, "", true, 0, new Set());
+
+    if (index < fallbackRoots.length - 1) {
+      lines.push("");
+    }
+  });
+
+  // Finally, export any connected nodes not reached because of cycles/weird graph structure.
+  const unvisited = nodes.filter((node) => !globallyVisited.has(node.id));
+
+  if (unvisited.length > 0) {
+    if (lines.length > 0) lines.push("");
+
+    for (const node of unvisited) {
+      lines.push(`[ ${getTitle(node)} ] (${language === "fr" ? "Non connecté / cycle" : "Unconnected / cycle"})`);
+    }
+  }
+
+  return lines.join("\n").trim();
 }
 
 /**
