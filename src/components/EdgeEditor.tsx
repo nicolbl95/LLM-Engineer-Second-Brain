@@ -25,15 +25,10 @@ export function EdgeEditor({ edge, isReadOnly, onChange, onDelete }: EdgeEditorP
     setDraft((prev) => {
       if (!prev) return prev;
       const next = { ...prev, ...updates };
+      // Autosave immediately
       onChange(next);
       return next;
     });
-  };
-
-  const handleSave = () => {
-    if (draft) {
-      onChange(draft);
-    }
   };
 
   return (
@@ -71,7 +66,7 @@ export function EdgeEditor({ edge, isReadOnly, onChange, onDelete }: EdgeEditorP
               <input
                 type="color"
                 className="edge-editor__color"
-                value={currentDraft.color ?? "#818cf8"}
+                value={currentDraft.color ?? "#94a3b8"}
                 onChange={(e) => updateDraft({ color: e.target.value })}
               />
             </label>
@@ -103,9 +98,6 @@ export function EdgeEditor({ edge, isReadOnly, onChange, onDelete }: EdgeEditorP
 
       {!isReadOnly && (
         <div className="edge-editor__actions">
-          <button type="button" className="edge-editor__button edge-editor__button--primary" onClick={handleSave}>
-            {language === "fr" ? "Enregistrer" : "Save"}
-          </button>
           <button type="button" className="edge-editor__button edge-editor__button--danger" onClick={() => currentDraft.id && onDelete(currentDraft.id)}>
             {language === "fr" ? "Supprimer la connexion" : "Delete connection"}
           </button>

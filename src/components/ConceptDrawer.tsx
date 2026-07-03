@@ -11,6 +11,7 @@ interface ConceptDrawerProps {
   onRelatedClick: (nodeId: string) => void;
   onSave: (node: BrainNode) => void;
   onDelete: (nodeId: string) => void;
+  isReadOnly?: boolean;
 }
 
 /** Right-side panel showing full concept details in the active language. */
@@ -19,6 +20,7 @@ export function ConceptDrawer({
   onClose,
   onSave,
   onDelete,
+  isReadOnly = false,
 }: ConceptDrawerProps) {
   const { language, t } = useLanguage();
   const [draft, setDraft] = useState<BrainNode | null>(node);
@@ -50,19 +52,16 @@ export function ConceptDrawer({
 
   if (!node) return null;
 
-  const currentDraft = draft ?? node;
+  const currentDraft = isReadOnly ? node : (draft ?? node);
 
   const updateDraft = (updates: Partial<BrainNode>) => {
-    setDraft((prev) => (prev ? { ...prev, ...updates } : prev));
-  };
-
-  const handleSave = () => {
-    if (!draft) return;
-    onSave(draft);
-  };
-
-  const handleCancel = () => {
-    setDraft(node);
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...updates };
+      // Autosave immediately
+      onSave(next);
+      return next;
+    });
   };
 
   const handleDelete = () => {
@@ -108,6 +107,11 @@ export function ConceptDrawer({
                   },
                 })
               }
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onClose();
+                }
+              }}
             />
           </div>
 
@@ -126,6 +130,25 @@ export function ConceptDrawer({
               }
             />
           </div>
+
+          {currentDraft.miniExplanation && (
+            <div className="drawer__field-row">
+              <label className="drawer__label">{language === "fr" ? "Mini-explication" : "Mini-explanation"}</label>
+              <input
+                className="drawer__input"
+                value={currentDraft.miniExplanation[language]}
+                onChange={(e) =>
+                  updateDraft({
+                    miniExplanation: {
+                      fr: currentDraft.miniExplanation!.fr ?? "",
+                      en: currentDraft.miniExplanation!.en ?? "",
+                      [language]: e.target.value,
+                    } as { fr: string; en: string },
+                  })
+                }
+              />
+            </div>
+          )}
 
           <div className="drawer__field-row">
             <label className="drawer__label">{language === "fr" ? "Taille de la police" : "Font size"}</label>
@@ -172,18 +195,6 @@ export function ConceptDrawer({
             />
           </div>
         </section>
-
-        <div className="drawer__actions">
-          <button type="button" className="drawer__action-btn drawer__action-btn--primary" onClick={handleSave}>
-            {language === "fr" ? "Enregistrer" : "Save"}
-          </button>
-          <button type="button" className="drawer__action-btn" onClick={handleCancel}>
-            {language === "fr" ? "Annuler" : "Cancel"}
-          </button>
-          <button type="button" className={`drawer__action-btn drawer__action-btn--danger ${isProtected ? "is-disabled" : ""}`} onClick={handleDelete} disabled={isProtected}>
-            {language === "fr" ? "Supprimer le nœud" : "Delete Node"}
-          </button>
-        </div>
       </div>
     </aside>
   );

@@ -365,7 +365,7 @@ export function BrainGraph({
   restoreHistoryState,
 }: BrainGraphProps) {
   const { language } = useLanguage();
-  const { fitView, zoomIn, zoomOut } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, screenToFlowPosition } = useReactFlow();
 
   const initialCanvas = useMemo(
     () => loadSavedCanvas(language),
@@ -537,10 +537,10 @@ export function BrainGraph({
   const onConnect = useCallback(
     (connection: Connection) => {
       const label = {
-        fr: "lié à",
-        en: "related to",
+        fr: "",
+        en: "",
       };
-      const color = "#818cf8";
+      const color = "#94a3b8";
 
       const newEdge: Edge = {
         ...connection,
@@ -635,23 +635,73 @@ export function BrainGraph({
     [setEdges],
   );
 
-  /** Add a new node at the center of the current view */
+  /** Add a new node at the center of the current viewport */
   const handleAddNode = useCallback(() => {
     const newNodeId = generateNodeId();
     
-    // Use a default center position
-    const centerX = 400;
-    const centerY = 320;
+    // Get the React Flow container element
+    const container = document.querySelector('.react-flow') as HTMLElement;
+    if (!container) {
+      // Fallback to default position if container not found
+      const centerX = 400;
+      const centerY = 320;
+      
+      const newNode: Node = {
+        id: newNodeId,
+        type: "brain",
+        position: { x: centerX - 90, y: centerY - 32 },
+        data: {
+          node: {
+            id: newNodeId,
+            type: "concept",
+            position: { x: centerX - 90, y: centerY - 32 },
+            title: { fr: "Nouveau Nœud", en: "New Node" },
+            shortSummary: { fr: "", en: "" },
+            simpleExplanation: { fr: "", en: "" },
+            deepExplanation: { fr: "", en: "" },
+            whyItMatters: { fr: "", en: "" },
+            prerequisites: { fr: [], en: [] },
+            relatedConcepts: [],
+            commonMistakes: { fr: [], en: [] },
+            examples: { fr: [], en: [] },
+          } as BrainNode,
+          label: language === "fr" ? "Nouveau Nœud" : "New Node",
+          nodeWidth: 180,
+          nodeHeight: 64,
+          highlighted: false,
+          dimmed: false,
+        },
+        selected: true,
+        draggable: true,
+        deletable: true,
+      };
+
+      setNodes((currentNodes) => [...currentNodes, newNode]);
+      
+      // Notify parent to open the drawer for editing
+      setTimeout(() => {
+        onNodeClick(newNodeId, newNode.data.node as BrainNode);
+      }, 100);
+      return;
+    }
+
+    // Calculate the center of the viewport in screen coordinates
+    const rect = container.getBoundingClientRect();
+    const screenCenterX = rect.left + rect.width / 2;
+    const screenCenterY = rect.top + rect.height / 2;
+
+    // Convert screen coordinates to flow coordinates
+    const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
 
     const newNode: Node = {
       id: newNodeId,
       type: "brain",
-      position: { x: centerX - 90, y: centerY - 32 },
+      position: { x: flowPosition.x - 90, y: flowPosition.y - 32 },
       data: {
         node: {
           id: newNodeId,
           type: "concept",
-          position: { x: centerX - 90, y: centerY - 32 },
+          position: { x: flowPosition.x - 90, y: flowPosition.y - 32 },
           title: { fr: "Nouveau Nœud", en: "New Node" },
           shortSummary: { fr: "", en: "" },
           simpleExplanation: { fr: "", en: "" },
@@ -679,7 +729,7 @@ export function BrainGraph({
     setTimeout(() => {
       onNodeClick(newNodeId, newNode.data.node as BrainNode);
     }, 100);
-  }, [generateNodeId, language, setNodes, onNodeClick]);
+  }, [generateNodeId, language, setNodes, onNodeClick, screenToFlowPosition]);
 
   /** Start connection creation mode */
   const handleStartConnection = useCallback(() => {
@@ -708,10 +758,10 @@ export function BrainGraph({
           id: `edge-${Date.now()}`,
           source: connectionSource,
           target: nodeId,
-          label: language === "fr" ? "lié à" : "related to",
+          label: language === "fr" ? "" : "",
           animated: false,
           style: {
-            stroke: "#818cf8",
+            stroke: "#94a3b8",
             strokeWidth: 1.8,
           },
           labelStyle: {
@@ -722,9 +772,9 @@ export function BrainGraph({
           labelBgStyle: { fill: "transparent" },
           labelBgPadding: [0, 0],
           data: {
-            label: { fr: "lié à", en: "related to" },
+            label: { fr: "", en: "" },
             relationshipType: "related",
-            color: "#818cf8",
+            color: "#94a3b8",
             lineStyle: "solid",
             labelColor: "#ffffff",
           },
