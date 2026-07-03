@@ -24,6 +24,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
 import { pick } from "../utils/i18n";
 import { EdgeEditor } from "./EdgeEditor";
+import { generateTreeExport, copyToClipboard } from "../utils/treeExport";
 
 interface ResizeState {
   nodeId: string;
@@ -381,7 +382,8 @@ export function BrainGraph({
   const [resizeState, setResizeState] = useState<ResizeState | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
-  const [mousePosition, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [, setMousePosition] = useState<{ x: number; y: number } | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState(false);
   const isEditing = true; // Always in edit mode
 
   /** Generate a unique node ID */
@@ -731,18 +733,6 @@ export function BrainGraph({
     }, 100);
   }, [generateNodeId, language, setNodes, onNodeClick, screenToFlowPosition]);
 
-  /** Start connection creation mode */
-  const handleStartConnection = useCallback(() => {
-    setIsConnecting(true);
-    setConnectionSource(null);
-  }, []);
-
-  /** Handle mouse move during connection creation */
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    if (isConnecting) {
-      setMousePosition({ x: e.clientX, y: e.clientY });
-    }
-  }, [isConnecting]);
 
   /** Handle node click during connection creation */
   const handleConnectionNodeClick = useCallback((nodeId: string) => {
@@ -802,6 +792,38 @@ export function BrainGraph({
   const centerView = useCallback(() => {
     fitView({ padding: 0.25, duration: 500 });
   }, [fitView]);
+
+  /** Export graph as tree and copy to clipboard */
+  const handleExportTree = useCallback(async () => {
+    // Extract BrainNodes from React Flow nodes
+    const brainNodes = nodes
+      .map((node) => (node.data as FlowNodeData)?.node)
+      .filter((node): node is BrainNode => node !== undefined);
+    
+    // Extract BrainEdges from React Flow edges
+    const brainEdges: BrainEdge[] = edges
+      .filter((edge) => edge.data?.label)
+      .map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle ?? undefined,
+        targetHandle: edge.targetHandle ?? undefined,
+        relationshipType: (edge.data?.relationshipType as BrainEdge['relationshipType']) ?? "related",
+        label: edge.data?.label as { fr: string; en: string },
+        color: edge.data?.color as string | undefined,
+        labelColor: edge.data?.labelColor as string | undefined,
+        lineStyle: edge.data?.lineStyle as "solid" | "dashed" | undefined,
+      }));
+    
+    const treeText = generateTreeExport(brainNodes, brainEdges, language);
+    const success = await copyToClipboard(treeText);
+    
+    if (success) {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    }
+  }, [nodes, edges, language]);
 
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
@@ -1002,6 +1024,25 @@ export function BrainGraph({
           {language === "fr" ? "Centrer" : "Fit"}
         </button>
       </div>
+
+      {/* Export button - bottom right, opposite minimap */}
+      <button
+        type="button"
+        onClick={handleExportTree}
+        className="export-button"
+        aria-label={language === "fr" ? "Exporter en arborescence" : "Export as tree"}
+        title={language === "fr" ? "Copier l'arborescence dans le presse-papiers" : "Copy tree structure to clipboard"}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path>
+          <rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect>
+        </svg>
+        {copyFeedback && (
+          <span className="export-button__feedback">
+            {language === "fr" ? "Copié !" : "Copied!"}
+          </span>
+        )}
+      </button>
 
       {selectedEdge && (
         <div

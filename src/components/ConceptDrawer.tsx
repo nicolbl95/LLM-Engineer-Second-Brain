@@ -10,7 +10,6 @@ interface ConceptDrawerProps {
   onClose: () => void;
   onRelatedClick: (nodeId: string) => void;
   onSave: (node: BrainNode) => void;
-  onDelete: (nodeId: string) => void;
   isReadOnly?: boolean;
 }
 
@@ -19,30 +18,28 @@ export function ConceptDrawer({
   node,
   onClose,
   onSave,
-  onDelete,
   isReadOnly = false,
 }: ConceptDrawerProps) {
   const { language, t } = useLanguage();
   const [draft, setDraft] = useState<BrainNode | null>(node);
 
-  const fallbackNode = useMemo<BrainNode>(() => ({
-    id: "",
-    type: "concept",
-    position: { x: 0, y: 0 },
-    title: { fr: "", en: "" },
-    shortSummary: { fr: "", en: "" },
-    simpleExplanation: { fr: "", en: "" },
-    deepExplanation: { fr: "", en: "" },
-    whyItMatters: { fr: "", en: "" },
-    prerequisites: { fr: [], en: [] },
-    relatedConcepts: [],
-    commonMistakes: { fr: [], en: [] },
-    examples: { fr: [], en: [] },
-  }), []);
-
-  const isProtected = useMemo(() => {
-    return node ? ["llm-engineer", "llm-engineer-root", "root"].includes(node.id) : false;
-  }, [node]);
+  const fallbackNode = useMemo<BrainNode>(
+    () => ({
+      id: "",
+      type: "concept",
+      position: { x: 0, y: 0 },
+      title: { fr: "", en: "" },
+      shortSummary: { fr: "", en: "" },
+      simpleExplanation: { fr: "", en: "" },
+      deepExplanation: { fr: "", en: "" },
+      whyItMatters: { fr: "", en: "" },
+      prerequisites: { fr: [], en: [] },
+      relatedConcepts: [],
+      commonMistakes: { fr: [], en: [] },
+      examples: { fr: [], en: [] },
+    }),
+    [],
+  );
 
   const color = getNodeColor(node ?? fallbackNode);
 
@@ -55,18 +52,15 @@ export function ConceptDrawer({
   const currentDraft = isReadOnly ? node : (draft ?? node);
 
   const updateDraft = (updates: Partial<BrainNode>) => {
+    if (isReadOnly) return;
+
     setDraft((prev) => {
       if (!prev) return prev;
+
       const next = { ...prev, ...updates };
-      // Autosave immediately
       onSave(next);
       return next;
     });
-  };
-
-  const handleDelete = () => {
-    if (isProtected) return;
-    onDelete(node.id);
   };
 
   return (
@@ -81,6 +75,7 @@ export function ConceptDrawer({
           </span>
           <h2 className="concept-drawer__title">{t(currentDraft.title)}</h2>
         </div>
+
         <button
           type="button"
           className="icon-btn"
@@ -91,14 +86,16 @@ export function ConceptDrawer({
         </button>
       </div>
 
-
       <div className="concept-drawer__content">
         <section className="drawer__section">
           <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Titre" : "Title"}</label>
+            <label className="drawer__label">
+              {language === "fr" ? "Titre" : "Title"}
+            </label>
             <input
               className="drawer__input"
               value={currentDraft.title[language]}
+              readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
                   title: {
@@ -116,10 +113,13 @@ export function ConceptDrawer({
           </div>
 
           <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Explication" : "Explanation"}</label>
+            <label className="drawer__label">
+              {language === "fr" ? "Explication" : "Explanation"}
+            </label>
             <textarea
               className="drawer__textarea"
               value={currentDraft.simpleExplanation[language]}
+              readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
                   simpleExplanation: {
@@ -133,51 +133,79 @@ export function ConceptDrawer({
 
           {currentDraft.miniExplanation && (
             <div className="drawer__field-row">
-              <label className="drawer__label">{language === "fr" ? "Mini-explication" : "Mini-explanation"}</label>
+              <label className="drawer__label">
+                {language === "fr" ? "Mini-explication" : "Mini-explanation"}
+              </label>
               <input
                 className="drawer__input"
                 value={currentDraft.miniExplanation[language]}
+                readOnly={isReadOnly}
                 onChange={(e) =>
                   updateDraft({
                     miniExplanation: {
-                      fr: currentDraft.miniExplanation!.fr ?? "",
-                      en: currentDraft.miniExplanation!.en ?? "",
+                      fr: currentDraft.miniExplanation?.fr ?? "",
+                      en: currentDraft.miniExplanation?.en ?? "",
                       [language]: e.target.value,
-                    } as { fr: string; en: string },
+                    },
                   })
                 }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onClose();
+                  }
+                }}
               />
             </div>
           )}
 
           <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Taille de la police" : "Font size"}</label>
+            <label className="drawer__label">
+              {language === "fr" ? "Taille de la police" : "Font size"}
+            </label>
             <div className="drawer__font-size-control">
               <button
                 type="button"
                 className="drawer__font-size-btn"
-                onClick={() => updateDraft({ fontSize: Math.max(8, (currentDraft.fontSize ?? 14) - 1) })}
+                disabled={isReadOnly}
+                onClick={() =>
+                  updateDraft({
+                    fontSize: Math.max(8, (currentDraft.fontSize ?? 14) - 1),
+                  })
+                }
                 aria-label={language === "fr" ? "Diminuer" : "Decrease"}
               >
                 −
               </button>
+
               <input
                 type="number"
                 className="drawer__font-size-input"
                 value={currentDraft.fontSize ?? 14}
                 min={8}
                 max={72}
+                readOnly={isReadOnly}
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
-                  if (!isNaN(value) && value >= 8 && value <= 72) {
+                  if (!Number.isNaN(value) && value >= 8 && value <= 72) {
                     updateDraft({ fontSize: value });
                   }
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    onClose();
+                  }
+                }}
               />
+
               <button
                 type="button"
                 className="drawer__font-size-btn"
-                onClick={() => updateDraft({ fontSize: Math.min(72, (currentDraft.fontSize ?? 14) + 1) })}
+                disabled={isReadOnly}
+                onClick={() =>
+                  updateDraft({
+                    fontSize: Math.min(72, (currentDraft.fontSize ?? 14) + 1),
+                  })
+                }
                 aria-label={language === "fr" ? "Augmenter" : "Increase"}
               >
                 +
@@ -186,11 +214,14 @@ export function ConceptDrawer({
           </div>
 
           <div className="drawer__field-row">
-            <label className="drawer__label">{language === "fr" ? "Couleur du nœud" : "Node color"}</label>
+            <label className="drawer__label">
+              {language === "fr" ? "Couleur du nœud" : "Node color"}
+            </label>
             <input
               type="color"
               className="drawer__color-input"
               value={currentDraft.color ?? color}
+              disabled={isReadOnly}
               onChange={(e) => updateDraft({ color: e.target.value })}
             />
           </div>
