@@ -15,6 +15,7 @@ import {
   type Edge,
   type NodeProps,
   type Connection,
+  MarkerType,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -274,31 +275,39 @@ function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
     const sourceNode = brainNodes.find((n) => n.id === e.source);
     const color = sourceNode ? getNodeColor(sourceNode) : "#64748b";
 
-    return {
-      id: e.id,
-      source: e.source,
-      target: e.target,
-      label: e.label ? pick(e.label, language) : undefined,
-      animated: e.relationshipType === "uses",
-      style: {
-        stroke: e.color ?? color,
-        strokeWidth: 1.6,
-        strokeDasharray: e.lineStyle === "dashed" ? "8 6" : undefined,
-      },
-      labelStyle: { fill: e.labelColor ?? "#ffffff", fontSize: 11, textShadow: "0 0 8px rgba(255,255,255,0.2)" },
-      labelBgStyle: { fill: "transparent" },
-      labelBgPadding: [0, 0],
-      data: {
-        label: e.label,
-        relationshipType: e.relationshipType,
-        color: e.color,
-        lineStyle: e.lineStyle ?? "solid",
-        labelColor: e.labelColor ?? "#ffffff",
-      },
-      sourceHandle: e.sourceHandle ?? "bottom-source",
-      targetHandle: e.targetHandle ?? "top-target",
-      deletable: true,
-    };
+  const edgeColor = e.color ?? color;
+  
+  return {
+    id: e.id,
+    source: e.source,
+    target: e.target,
+    label: e.label ? pick(e.label, language) : undefined,
+    animated: e.relationshipType === "uses",
+    style: {
+      stroke: edgeColor,
+      strokeWidth: 1.6,
+      strokeDasharray: e.lineStyle === "dashed" ? "8 6" : undefined,
+    },
+    markerEnd: {
+      type: MarkerType.ArrowClosed,
+      color: edgeColor,
+      width: 16,
+      height: 16,
+    },
+    labelStyle: { fill: e.labelColor ?? "#ffffff", fontSize: 11, textShadow: "0 0 8px rgba(255,255,255,0.2)" },
+    labelBgStyle: { fill: "transparent" },
+    labelBgPadding: [0, 0],
+    data: {
+      label: e.label,
+      relationshipType: e.relationshipType,
+      color: e.color,
+      lineStyle: e.lineStyle ?? "solid",
+      labelColor: e.labelColor ?? "#ffffff",
+    },
+    sourceHandle: e.sourceHandle ?? "bottom-source",
+    targetHandle: e.targetHandle ?? "top-target",
+    deletable: true,
+  };
   });
 }
 
@@ -554,6 +563,12 @@ export function BrainGraph({
           strokeWidth: 1.8,
           strokeDasharray: undefined,
         },
+        markerEnd: {
+          type: MarkerType.ArrowClosed,
+          color: color,
+          width: 16,
+          height: 16,
+        },
         labelStyle: {
           fill: "#ffffff",
           fontSize: 10,
@@ -595,13 +610,21 @@ export function BrainGraph({
           if (edge.id !== updatedEdge.id) return edge;
 
           const nextLabel = updatedEdge.label ? updatedEdge.label[language] : undefined;
+          const updatedColor = updatedEdge.color ?? edge.style?.stroke ?? "#818cf8";
+          
           return {
             ...edge,
             label: nextLabel,
             style: {
               ...(edge.style ?? {}),
-              stroke: updatedEdge.color ?? edge.style?.stroke ?? "#818cf8",
+              stroke: updatedColor,
               strokeDasharray: updatedEdge.lineStyle === "dashed" ? "8 6" : undefined,
+            },
+            markerEnd: {
+              type: MarkerType.ArrowClosed,
+              color: updatedColor,
+              width: 16,
+              height: 16,
             },
             labelStyle: {
               ...(edge.labelStyle ?? {}),
@@ -753,6 +776,12 @@ export function BrainGraph({
           style: {
             stroke: "#94a3b8",
             strokeWidth: 1.8,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: "#94a3b8",
+            width: 16,
+            height: 16,
           },
           labelStyle: {
             fill: "#ffffff",
