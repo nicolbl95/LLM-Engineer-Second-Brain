@@ -42,12 +42,6 @@ interface ResizeState {
   isResizing: boolean;
 }
 
-interface SummaryDragState {
-  nodeId: string;
-  startX: number;
-  startSummaryOffsetX: number;
-  isDragging: boolean;
-}
 
 interface BrainGraphProps {
   selectedNodeId: string | null;
@@ -1377,11 +1371,19 @@ export function BrainGraph({
           setSelectedEdgeId(null);
           onClearSelection();
         }}
+        onPaneContextMenu={(e) => {
+          // Prevent context menu on canvas to enable right-click panning
+          e.preventDefault();
+        }}
         nodesDraggable={isEditing}
         nodesConnectable={isEditing}
         edgesReconnectable={isEditing}
         elementsSelectable
         deleteKeyCode={isEditing ? "Delete" : null}
+        // Miro-style navigation: right-click (mouse button 2) for panning
+        panOnDrag={[2]}
+        // Left-click drag on empty canvas creates selection rectangle
+        selectionOnDrag
         fitView
         fitViewOptions={{ padding: 0.2 }}
         minZoom={0.3}

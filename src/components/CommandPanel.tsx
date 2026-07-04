@@ -1,56 +1,44 @@
 import { useState } from "react";
-import { Brain, Send } from "lucide-react";
-import type {
-  ProjectAnalysis,
-  SearchResult,
-} from "../types/brain";
+import { Trash2, BookOpen } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
-import { ui } from "../data/uiStrings";
-import { NodeCard } from "./NodeCard";
 
-export type CommandMode = "askBrain";
+interface DefinitionResult {
+  term: string;
+  simpleDefinition: string;
+  metaphor: string;
+  whyItMatters: string;
+  foundInGraph: boolean;
+}
 
 interface CommandPanelProps {
-  mode?: CommandMode;
-  onModeChange?: (mode: CommandMode) => void;
-  searchResult: SearchResult | null;
-  projectAnalysis?: ProjectAnalysis | null;
-  onAskBrain: (query: string) => void;
-  onBuildProject?: (description: string) => void;
-  onNodeSelect: (nodeId: string) => void;
+  definitionResult?: DefinitionResult | null;
+  onDefine?: (term: string) => void;
+  onClearDefinition?: () => void;
 }
 
 /**
- * Bottom panel.
- *
- * This panel is now simplified:
- * - no Add Knowledge mode
- * - no Build Project mode
- * - only Ask Brain / Demander mode
+ * Bottom panel - Definition only
  */
 export function CommandPanel({
-  searchResult,
-  onAskBrain,
-  onNodeSelect,
+  definitionResult,
+  onDefine,
+  onClearDefinition,
 }: CommandPanelProps) {
-  const { language, t } = useLanguage();
+  const { language } = useLanguage();
   const [input, setInput] = useState("");
 
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
-
-    onAskBrain(trimmed);
+    onDefine?.(trimmed);
   };
 
-  const resultTitle =
-    searchResult?.type === "full"
-      ? ui("knowledgeFound", language)
-      : searchResult?.type === "partial"
-        ? ui("partialKnowledge", language)
-        : searchResult?.type === "none"
-          ? ui("noKnowledge", language)
-          : null;
+  const handleClearDefinition = () => {
+    if (onClearDefinition) {
+      onClearDefinition();
+      setInput("");
+    }
+  };
 
   return (
     <footer className="command-panel">
@@ -60,16 +48,28 @@ export function CommandPanel({
         <button
           type="button"
           className="command-tab command-tab--active"
-          aria-label={language === "fr" ? "Demander au cerveau" : "Ask the brain"}
+          aria-label={language === "fr" ? "Définition" : "Definition"}
         >
-          <Brain size={16} />
-          {language === "fr" ? "Demander" : "Ask"}
+          <BookOpen size={16} />
+          {language === "fr" ? "Définition" : "Definition"}
         </button>
+
+        {onClearDefinition && definitionResult && (
+          <button
+            type="button"
+            className="command-tab command-tab--clear"
+            onClick={handleClearDefinition}
+            aria-label={language === "fr" ? "Effacer l'historique des définitions" : "Clear definition history"}
+            title={language === "fr" ? "Effacer l'historique des définitions" : "Clear definition history"}
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
       </div>
 
       <div className="command-panel__body">
         <h3 className="command-panel__title">
-          {language === "fr" ? "Demander au cerveau" : "Ask the Brain"}
+          {language === "fr" ? "Définition" : "Definition"}
         </h3>
 
         <div className="command-panel__input-row">
@@ -79,8 +79,8 @@ export function CommandPanel({
             onChange={(e) => setInput(e.target.value)}
             placeholder={
               language === "fr"
-                ? "Pose une question ou colle des concepts à analyser dans ton second cerveau."
-                : "Ask a question or paste concepts to analyze in your second brain."
+                ? "Entre un terme technique (ex: embedding, RAG, fine-tuning...)"
+                : "Enter a technical term (e.g.: embedding, RAG, fine-tuning...)"
             }
             rows={2}
             onKeyDown={(e) => {
@@ -97,69 +97,49 @@ export function CommandPanel({
             onClick={handleSubmit}
             disabled={!input.trim()}
           >
-            <Send size={16} />
-            {language === "fr" ? "Demander" : "Ask"}
+            <BookOpen size={16} />
+            {language === "fr" ? "Définir" : "Define"}
           </button>
         </div>
 
-        {searchResult && searchResult.query && (
-          <div className={`command-panel__results result--${searchResult.type}`}>
-            {resultTitle && (
-              <h4 className="result__heading">{resultTitle}</h4>
-            )}
+        {definitionResult && (
+          <div className="command-panel__results command-panel__results--definition">
+            <h4 className="result__heading">
+              {language === "fr" ? "Définition" : "Definition"}
+            </h4>
 
-            <p className="result__summary">{t(searchResult.summary)}</p>
-
-            {searchResult.mentionDetails && (
-              <p className="result__detail">
-                {t(searchResult.mentionDetails)}
-              </p>
-            )}
-
-            {searchResult.bestMatch && (
-              <div className="result__section">
-                <h5>{ui("mainMatch", language)}</h5>
-                <NodeCard
-                  node={searchResult.bestMatch}
-                  onClick={() => onNodeSelect(searchResult.bestMatch!.id)}
-                />
+            <div className="definition-result">
+              <div className="definition-section">
+                <h5>
+                  {language === "fr" ? "Définition simple" : "Simple definition"}
+                </h5>
+                <p>{definitionResult.simpleDefinition}</p>
               </div>
-            )}
 
-            {searchResult.relatedNodes.length > 0 && (
-              <div className="result__section">
-                <h5>{ui("relatedNodes", language)}</h5>
-                <div className="result__cards">
-                  {searchResult.relatedNodes.map((n) => (
-                    <NodeCard
-                      key={n.id}
-                      node={n}
-                      compact
-                      onClick={() => onNodeSelect(n.id)}
-                    />
-                  ))}
+              <div className="definition-section">
+                <h5>
+                  {language === "fr" ? "Métaphore" : "Metaphor"}
+                </h5>
+                <p>{definitionResult.metaphor}</p>
+              </div>
+
+              <div className="definition-section">
+                <h5>
+                  {language === "fr" ? "Pourquoi c'est important" : "Why it matters"}
+                </h5>
+                <p>{definitionResult.whyItMatters}</p>
+              </div>
+
+              {definitionResult.foundInGraph && (
+                <div className="definition-section definition-section--found">
+                  <p>
+                    {language === "fr"
+                      ? "✓ Ce concept existe dans votre graphe de connaissances"
+                      : "✓ This concept exists in your knowledge graph"}
+                  </p>
                 </div>
-              </div>
-            )}
-
-            {searchResult.type === "none" && (
-              <p className="result__suggest">
-                {ui("suggestAddKnowledge", language)}
-              </p>
-            )}
-
-            {searchResult.suggestions.length > 0 && (
-              <div className="result__section">
-                <h5>{ui("similarTerms", language)}</h5>
-                <div className="similar-terms">
-                  {searchResult.suggestions.map((s) => (
-                    <span key={s} className="similar-terms__chip">
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         )}
       </div>

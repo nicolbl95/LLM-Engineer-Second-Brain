@@ -3,16 +3,15 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { BrainGraph } from "./components/BrainGraph";
 import { ConceptDrawer } from "./components/ConceptDrawer";
-import { CommandPanel, type CommandMode } from "./components/CommandPanel";
+import { CommandPanel } from "./components/CommandPanel";
 import { SearchPanel } from "./components/SearchPanel";
-import type { BrainNode, PillarId, ProjectAnalysis, SearchResult } from "./types/brain";
+import type { BrainNode, PillarId } from "./types/brain";
 import { getNodeById } from "./utils/graphHelpers";
-import { searchBrain } from "./utils/search";
-import { analyzeProject } from "./utils/graphHelpers";
-import { useHistory, type HistoryState } from "./hooks/useHistory";
+import { generateDefinition } from "./utils/definitions";
+import { useHistory } from "./hooks/useHistory";
 import "./styles.css";
 
-/** Main app layout — graph, drawer, command panel. */
+/** Main app layout — graph, drawer, definition panel. */
 function AppContent() {
   const { language, setLanguage } = useLanguage();
 
@@ -20,10 +19,13 @@ function AppContent() {
   const [selectedNode, setSelectedNode] = useState<BrainNode | null>(null);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([]);
   const [activePillar] = useState<PillarId | "all">("all");
-  const [commandMode, setCommandMode] = useState<CommandMode>("askBrain");
-  const [searchResult, setSearchResult] = useState<SearchResult | null>(null);
-  const [projectAnalysis, setProjectAnalysis] =
-    useState<ProjectAnalysis | null>(null);
+  const [definitionResult, setDefinitionResult] = useState<{
+    term: string;
+    simpleDefinition: string;
+    metaphor: string;
+    whyItMatters: string;
+    foundInGraph: boolean;
+  } | null>(null);
   const [updatedNode, setUpdatedNode] = useState<BrainNode | null>(null);
   const [deletedNodeId, setDeletedNodeId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -70,37 +72,14 @@ function AppContent() {
     [],
   );
 
-  /** Run search from top bar — opens Ask Brain results and best match. */
-  const runSearch = useCallback(
-    (query: string) => {
-      const result = searchBrain(query, language);
-      setSearchResult(result);
-      setCommandMode("askBrain");
+  const handleDefine = useCallback((term: string) => {
+    const result = generateDefinition(term, language);
+    setDefinitionResult(result);
+  }, [language]);
 
-      const ids = result.matches.map((n) => n.id);
-      if (result.bestMatch) {
-        selectNode(result.bestMatch.id, false);
-        setHighlightedNodeIds(ids.length > 0 ? ids : [result.bestMatch.id]);
-      } else {
-        setHighlightedNodeIds(ids);
-      }
-    },
-    [language, selectNode],
-  );
-
-  const handleAskBrain = (query: string) => {
-    runSearch(query);
-  };
-
-  const handleBuildProject = (description: string) => {
-    const analysis = analyzeProject(description, language);
-    setProjectAnalysis(analysis);
-    const ids = analysis.existingAnalysis.map((n) => n.nodeId);
-    setHighlightedNodeIds(ids);
-    if (analysis.existingAnalysis[0]) {
-      selectNode(analysis.existingAnalysis[0].nodeId, true);
-    }
-  };
+  const clearDefinitionHistory = useCallback(() => {
+    setDefinitionResult(null);
+  }, []);
 
   const handleUndo = useCallback(() => {
     undo();
@@ -226,18 +205,13 @@ function AppContent() {
           }}
           onRelatedClick={(id) => selectNode(id)}
           onSave={handleNodeUpdate}
-          onDelete={handleNodeDelete}
         />
       </main>
 
       <CommandPanel
-        mode={commandMode}
-        onModeChange={setCommandMode}
-        searchResult={searchResult}
-        projectAnalysis={projectAnalysis}
-        onAskBrain={handleAskBrain}
-        onBuildProject={handleBuildProject}
-        onNodeSelect={(id) => selectNode(id)}
+        definitionResult={definitionResult}
+        onDefine={handleDefine}
+        onClearDefinition={clearDefinitionHistory}
       />
     </div>
   );

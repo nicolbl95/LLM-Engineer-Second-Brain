@@ -40,14 +40,29 @@ function getNodeText(node: BrainNode, language: Language): string {
   return parts.filter(Boolean).join(" ");
 }
 
-function getNodeTitleById(id: string, language: Language): string {
-  const node = brainNodes.find((n) => n.id === id);
+function getNodeTitleById(id: string, language: Language, nodesList?: BrainNode[]): string {
+  const nodeList = nodesList || brainNodes;
+  const node = nodeList.find((n) => n.id === id);
   return node ? pick(node.title, language) : id;
 }
 
 function getEdgeLabel(edge: (typeof brainEdges)[number], language: Language): string {
   if (!edge.label) return language === "fr" ? "lié à" : "related to";
   return pick(edge.label, language);
+}
+
+/**
+ * Get related nodes from active graph only
+ */
+function getRelatedNodesFromActive(node: BrainNode, activeNodes: BrainNode[], activeEdges: typeof brainEdges): BrainNode[] {
+  const relatedIds = activeEdges
+    .filter(e => e.source === node.id || e.target === node.id)
+    .map(e => e.source === node.id ? e.target : e.source)
+    .slice(0, 5); // Limit to 5 related nodes
+
+  return relatedIds
+    .map(id => activeNodes.find(n => n.id === id))
+    .filter((n): n is BrainNode => Boolean(n));
 }
 
 /**
@@ -397,16 +412,21 @@ function generateGraphExpansionPlan(
 }
 
 /**
- * Generate a structured three-part markdown response based only on local graph data.
- *
+ * Generate a concise structured three-part markdown response based on active graph data.
+ * 
+ * This version limits output to most relevant nodes/edges and uses active canvas state.
+ * 
  * Required output shape:
- * 1. Part 1: existing graph knowledge
- * 2. Part 2: missing graph knowledge / suggestions
- * 3. Part 3: suggested new nodes and tree connections
+ * 1. Part 1: existing graph knowledge (1-2 paragraphs, max 5 nodes, max 3 edges)
+ * 2. Part 2: missing graph knowledge / suggestions (1-2 paragraphs, max 3-5 gaps)
+ * 3. Part 3: suggested new nodes and tree connections (compact tree)
  */
-function generateMarkdownResponse(
+function generateConciseMarkdownResponse(
   query: string,
   matches: BrainNode[],
+  relatedNodes: BrainNode[],
+  activeNodes: BrainNode[],
+  activeEdges: typeof brainEdges,
   language: Language,
 ): string {
   const isEn = language === "en";
@@ -657,8 +677,18 @@ function levenshtein(a: string, b: string): number {
 /**
  * Search the knowledge graph across titles, summaries, explanations,
  * prerequisites, mistakes, examples, and pillar names.
+ * 
+ * @param query - Search query
+ * @param language - Language for results
+ * @param activeNodes - Current active nodes from the canvas (optional, uses static data if not provided)
+ * @param activeEdges - Current active edges from the canvas (optional, uses static data if not provided)
  */
-export function searchBrain(query: string, _language: Language): SearchResult {
+export function searchBrain(
+  query: string,
+  language: Language,
+  activeNodes?: BrainNode[],
+  activeEdges?: typeof brainEdges
+): SearchResult {
   const trimmed = query.trim();
 
   if (!trimmed) {
@@ -673,17 +703,25 @@ export function searchBrain(query: string, _language: Language): SearchResult {
     };
   }
 
-  const scored = brainNodes
+  // Use active nodes if provided, otherwise fall back to static data
+  const nodesToSearch = activeNodes && activeNodes.length > 0 ? activeNodes : brainNodes;
+  const edgesToSearch = activeEdges && activeEdges.length > 0 ? activeEdges : brainEdges;
+
+  const scored = nodesToSearch
     .filter((n) => n.type !== "central")
     .map((node) => ({ node, score: scoreNode(node, trimmed) }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score);
 
-  const matches = scored.map(({ node }) => node);
+  // Limit to top 5 matches
+  const matches = scored.slice(0, 5).map(({ node }) => node);
   const bestMatch = matches[0];
-  const relatedNodes = bestMatch ? getRelatedNodes(bestMatch) : [];
+  
+  // Get related nodes from active graph only
+  const relatedNodes = bestMatch ? getRelatedNodesFromActive(bestMatch, nodesToSearch, edgesToSearch) : [];
 
-  const allTitles = brainNodes
+  // Get suggestions from active nodes only
+  const allTitles = nodesToSearch
     .filter((n) => n.type === "concept")
     .flatMap((n) => [n.title.fr, n.title.en]);
 
@@ -699,9 +737,10 @@ export function searchBrain(query: string, _language: Language): SearchResult {
     })
     .slice(0, 5);
 
+  // Generate concise markdown response using active graph data
   const markdownResponse = lt(
-    generateMarkdownResponse(trimmed, matches, "fr"),
-    generateMarkdownResponse(trimmed, matches, "en"),
+    generateConciseMarkdownResponse(trimmed, matches, relatedNodes, nodesToSearch, edgesToSearch, "fr"),
+    generateConciseMarkdownResponse(trimmed, matches, relatedNodes, nodesToSearch, edgesToSearch, "en"),
   );
 
   if (bestMatch && scored[0].score >= 25) {

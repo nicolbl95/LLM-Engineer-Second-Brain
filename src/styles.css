@@ -550,8 +550,32 @@ body {
 
 .react-flow__selection,
 .react-flow__nodesselection {
-  border: 1px solid rgba(129, 140, 248, 0.35) !important;
-  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.2) !important;
+  border: 1px solid rgba(129, 140, 248, 0.5) !important;
+  box-shadow: inset 0 0 0 1px rgba(129, 140, 248, 0.3) !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  border-radius: 4px;
+}
+
+/* Miro-style canvas navigation cursors */
+.brain-graph {
+  cursor: grab;
+}
+
+.brain-graph.is-panning {
+  cursor: grabbing;
+}
+
+.brain-graph.is-selecting {
+  cursor: crosshair;
+}
+
+/* When React Flow is panning with right-click */
+.react-flow--panning {
+  cursor: grabbing !important;
+}
+
+.react-flow--panning .react-flow__pane {
+  cursor: grabbing !important;
 }
 
 .brain-controls {
@@ -1336,6 +1360,150 @@ body {
 .command-tab--active {
   color: var(--accent);
   border-bottom-color: var(--accent);
+}
+
+.command-tab--clear {
+  margin-left: auto;
+  padding: 8px 10px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.command-tab--clear:hover {
+  color: var(--danger);
+  background: rgba(248, 113, 113, 0.1);
+  transform: scale(1.1);
+}
+
+.command-tab--clear:active {
+  transform: scale(0.95);
+}
+
+/* Definition results */
+.command-panel__results--definition {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius);
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.definition-result {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.definition-section {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.definition-section:last-child {
+  border-bottom: none;
+}
+
+.definition-section h5 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.definition-section p {
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.definition-section--found {
+  background: rgba(52, 211, 153, 0.1);
+  border: 1px solid rgba(52, 211, 153, 0.3);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-top: 8px;
+}
+
+.definition-section--found p {
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* Markdown analysis for Ask section */
+.result__analysis {
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-top: 12px;
+  margin-bottom: 12px;
+}
+
+.result__analysis-content {
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+
+.result__analysis-content .analysis-heading {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 14px;
+  margin-bottom: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.result__analysis-content .analysis-heading:first-child {
+  margin-top: 0;
+}
+
+.result__analysis-content .analysis-list {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.result__analysis-content .analysis-list-item {
+  margin-bottom: 6px;
+  padding-left: 4px;
+}
+
+.result__analysis-content .analysis-code {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.result__analysis-content .analysis-tree-line {
+  color: var(--text-dim);
+  font-family: monospace;
+}
+
+.result__analysis-content .analysis-tree-branch {
+  color: var(--accent);
+  font-family: monospace;
+  font-weight: bold;
+}
+
+.result__analysis-content strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .command-panel__body {

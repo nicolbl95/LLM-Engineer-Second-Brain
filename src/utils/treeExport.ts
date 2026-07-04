@@ -45,6 +45,17 @@ export function generateTreeExport(
     return node.title[language] || node.title.fr || node.title.en || node.id;
   };
 
+  const getExplanation = (node: BrainNode): string => {
+    // Priority order: simpleExplanation > shortSummary > empty string
+    const simpleExplanation = node.simpleExplanation?.[language] || node.simpleExplanation?.fr || node.simpleExplanation?.en;
+    if (simpleExplanation) return simpleExplanation;
+    
+    const shortSummary = node.shortSummary?.[language] || node.shortSummary?.fr || node.shortSummary?.en;
+    if (shortSummary) return shortSummary;
+    
+    return "";
+  };
+
   const isIsolated = (node: BrainNode): boolean => {
     const children = childrenMap.get(node.id) ?? [];
     return !hasParent.has(node.id) && children.length === 0;
@@ -85,11 +96,16 @@ export function generateTreeExport(
     localVisited.add(node.id);
     globallyVisited.add(node.id);
 
+    const explanation = getExplanation(node);
+    const titleWithExplanation = explanation 
+      ? `[ ${getTitle(node)} ]: ${explanation}`
+      : `[ ${getTitle(node)} ]`;
+
     if (depth === 0) {
-      lines.push(`[ ${getTitle(node)} ]`);
+      lines.push(titleWithExplanation);
     } else {
       const connector = isLast ? "└── " : "├── ";
-      lines.push(`${prefix}${connector}[ ${getTitle(node)} ]`);
+      lines.push(`${prefix}${connector}${titleWithExplanation}`);
     }
 
     const children = childrenMap.get(node.id) ?? [];
@@ -115,7 +131,11 @@ export function generateTreeExport(
 
   // First export isolated nodes.
   for (const node of isolatedNodes) {
-    lines.push(`[ ${getTitle(node)} ] (${language === "fr" ? "Isolé à gauche" : "Isolated on the left"})`);
+    const explanation = getExplanation(node);
+    const titleWithExplanation = explanation 
+      ? `[ ${getTitle(node)} ]: ${explanation}`
+      : `[ ${getTitle(node)} ]`;
+    lines.push(`${titleWithExplanation} (${language === "fr" ? "Isolé à gauche" : "Isolated on the left"})`);
     lines.push("");
     globallyVisited.add(node.id);
   }
@@ -138,7 +158,11 @@ export function generateTreeExport(
     if (lines.length > 0) lines.push("");
 
     for (const node of unvisited) {
-      lines.push(`[ ${getTitle(node)} ] (${language === "fr" ? "Non connecté / cycle" : "Unconnected / cycle"})`);
+      const explanation = getExplanation(node);
+      const titleWithExplanation = explanation 
+        ? `[ ${getTitle(node)} ]: ${explanation}`
+        : `[ ${getTitle(node)} ]`;
+      lines.push(`${titleWithExplanation} (${language === "fr" ? "Non connecté / cycle" : "Unconnected / cycle"})`);
     }
   }
 
