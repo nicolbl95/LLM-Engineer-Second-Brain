@@ -669,18 +669,30 @@ body {
 /* Summary drag handle - horizontal only */
 .summary-drag-handle {
   position: absolute;
-  top: -8px;
+  top: -10px;
   left: 50%;
   transform: translateX(-50%);
-  width: 40px;
-  height: 8px;
-  background: rgba(99, 102, 241, 0.6);
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  border-radius: 4px;
+  width: 48px;
+  height: 12px;
+  background: linear-gradient(90deg, 
+    rgba(99, 102, 241, 0.4) 0%, 
+    rgba(99, 102, 241, 0.8) 50%, 
+    rgba(99, 102, 241, 0.4) 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 6px;
   cursor: ew-resize;
   z-index: 11;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+  /* Add grip lines for visual affordance */
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent,
+    transparent 3px,
+    rgba(255, 255, 255, 0.3) 3px,
+    rgba(255, 255, 255, 0.3) 4px
+  );
 }
 
 .brain-node--selected .summary-drag-handle {
@@ -688,8 +700,18 @@ body {
 }
 
 .summary-drag-handle:hover {
-  background: rgba(99, 102, 241, 0.9);
+  background: linear-gradient(90deg, 
+    rgba(99, 102, 241, 0.6) 0%, 
+    rgba(99, 102, 241, 1) 50%, 
+    rgba(99, 102, 241, 0.6) 100%
+  );
+  transform: translateX(-50%) scale(1.15);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.8);
+}
+
+.summary-drag-handle:active {
   transform: translateX(-50%) scale(1.1);
+  box-shadow: 0 0 16px rgba(99, 102, 241, 1);
 }
 
 /* Summary resize handles - using same .resize-handle class as main node */
