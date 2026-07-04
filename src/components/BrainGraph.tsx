@@ -36,7 +36,17 @@ interface ResizeState {
   startHeight: number;
   startMiniWidth: number;
   startMiniHeight: number;
+  startSummaryWidth: number;
+  startSummaryHeight: number;
+  startSummaryOffsetX: number;
   isResizing: boolean;
+}
+
+interface SummaryDragState {
+  nodeId: string;
+  startX: number;
+  startSummaryOffsetX: number;
+  isDragging: boolean;
 }
 
 interface BrainGraphProps {
@@ -69,6 +79,10 @@ type FlowNodeData = {
   highlighted?: boolean;
   dimmed?: boolean;
   isEditing?: boolean;
+  summary?: string;
+  summaryWidth?: number;
+  summaryHeight?: number;
+  summaryOffsetX?: number;
 };
 
 const STORAGE_KEY = "llm-engineer-second-brain-canvas";
@@ -84,7 +98,17 @@ const PROTECTED_NODE_IDS = new Set([
 ]);
 
 /** Custom React Flow node — label uses active language only. */
-function BrainNodeComponent({ data, selected, onResizeStart }: NodeProps & { onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, nodeWidth: number, nodeHeight: number, miniWidth: number, miniHeight: number) => void }) {
+function BrainNodeComponent({ 
+  data, 
+  selected, 
+  onResizeStart,
+  onSummaryDragStart,
+  onSummaryResizeStart 
+}: NodeProps & { 
+  onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, nodeWidth: number, nodeHeight: number, miniWidth: number, miniHeight: number, summaryWidth: number, summaryHeight: number, summaryOffsetX: number) => void;
+  onSummaryDragStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, startX: number, startSummaryOffsetX: number) => void;
+  onSummaryResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, summaryWidth: number, summaryHeight: number, summaryOffsetX: number) => void;
+}) {
   const flowData = data as FlowNodeData;
   const node = flowData.node as BrainNode;
   const color = getNodeColor(node);
@@ -107,6 +131,10 @@ function BrainNodeComponent({ data, selected, onResizeStart }: NodeProps & { onR
   const nodeWidth = flowData.nodeWidth ?? 180;
   const nodeHeight = flowData.nodeHeight ?? 64;
   const fontSize = flowData.node?.fontSize ?? 14;
+  const summaryText = flowData.summary as string | undefined;
+  const summaryWidth = flowData.summaryWidth ?? 520;
+  const summaryHeight = flowData.summaryHeight ?? 120;
+  const summaryOffsetX = flowData.summaryOffsetX ?? 0;
 
   // Resize handle props
   const showResizeHandles = selected && isEditing;
@@ -136,6 +164,7 @@ function BrainNodeComponent({ data, selected, onResizeStart }: NodeProps & { onR
           "--node-height": `${nodeHeight}px`,
           "--mini-width": `${miniWidth}px`,
           "--mini-height": `${miniHeight}px`,
+          "--summary-offset": `${summaryOffsetX}px`,
         } as React.CSSProperties
       }
     >
@@ -178,32 +207,173 @@ function BrainNodeComponent({ data, selected, onResizeStart }: NodeProps & { onR
         <div className="brain-node__mini">{miniText}</div>
       )}
 
+      {/* Summary sub-node - rendered as part of the main node */}
+      {summaryText && (
+        <div
+          className="brain-node__summary"
+          style={{
+            width: `${summaryWidth}px`,
+            height: `${summaryHeight}px`,
+            transform: `translateX(${summaryOffsetX}px)`,
+          }}
+        >
+          {/* Horizontal drag handle for summary */}
+          {selected && onSummaryDragStart && (
+            <div
+              className="summary-drag-handle"
+              onMouseDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onSummaryDragStart(e, node.id, e.clientX, summaryOffsetX);
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onSummaryDragStart(e, node.id, e.clientX, summaryOffsetX);
+              }}
+            />
+          )}
+          
+          <div className="brain-node__summary-content">{summaryText}</div>
+          
+          {/* Summary resize handles - all 4 corners */}
+          {selected && onSummaryResizeStart && (
+            <>
+              <div
+                className="summary-resize-handle summary-resize-handle--nw"
+                style={{ 
+                  position: 'absolute',
+                  top: '-7px', 
+                  left: '-7px', 
+                  width: '14px', 
+                  height: '14px',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid rgba(99, 102, 241, 0.9)',
+                  borderRadius: '50%',
+                  cursor: 'nwse-resize',
+                  zIndex: 12,
+                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "nw", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "nw", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+              />
+              <div
+                className="summary-resize-handle summary-resize-handle--ne"
+                style={{ 
+                  position: 'absolute',
+                  top: '-7px', 
+                  right: '-7px', 
+                  width: '14px', 
+                  height: '14px',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid rgba(99, 102, 241, 0.9)',
+                  borderRadius: '50%',
+                  cursor: 'nesw-resize',
+                  zIndex: 12,
+                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "ne", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "ne", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+              />
+              <div
+                className="summary-resize-handle summary-resize-handle--sw"
+                style={{ 
+                  position: 'absolute',
+                  bottom: '-7px', 
+                  left: '-7px', 
+                  width: '14px', 
+                  height: '14px',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid rgba(99, 102, 241, 0.9)',
+                  borderRadius: '50%',
+                  cursor: 'nesw-resize',
+                  zIndex: 12,
+                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "sw", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "sw", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+              />
+              <div
+                className="summary-resize-handle summary-resize-handle--se"
+                style={{ 
+                  position: 'absolute',
+                  bottom: '-7px', 
+                  right: '-7px', 
+                  width: '14px', 
+                  height: '14px',
+                  backgroundColor: '#ffffff',
+                  border: '2px solid rgba(99, 102, 241, 0.9)',
+                  borderRadius: '50%',
+                  cursor: 'nwse-resize',
+                  zIndex: 12,
+                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
+                }}
+                onMouseDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "se", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                  onSummaryResizeStart(e, node.id, "se", summaryWidth, summaryHeight, summaryOffsetX);
+                }}
+              />
+            </>
+          )}
+        </div>
+      )}
+
       {/* Resize handles - only visible when selected and in edit mode */}
       {showResizeHandles && onResizeStart && (
         <>
           <div
             className="resize-handle resize-handle--nw"
             style={{ ...resizeHandleStyle, top: "-6px", left: "-6px", cursor: "nwse-resize" }}
-            onMouseDown={(e) => onResizeStart(e, node.id, "nw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
-            onPointerDown={(e) => onResizeStart(e, node.id, "nw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onMouseDown={(e) => onResizeStart(e, node.id, "nw", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "nw", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
           />
           <div
             className="resize-handle resize-handle--ne"
             style={{ ...resizeHandleStyle, top: "-6px", right: "-6px", cursor: "nesw-resize" }}
-            onMouseDown={(e) => onResizeStart(e, node.id, "ne", nodeWidth, nodeHeight, miniWidth, miniHeight)}
-            onPointerDown={(e) => onResizeStart(e, node.id, "ne", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onMouseDown={(e) => onResizeStart(e, node.id, "ne", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "ne", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
           />
           <div
             className="resize-handle resize-handle--sw"
             style={{ ...resizeHandleStyle, bottom: "-6px", left: "-6px", cursor: "nesw-resize" }}
-            onMouseDown={(e) => onResizeStart(e, node.id, "sw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
-            onPointerDown={(e) => onResizeStart(e, node.id, "sw", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onMouseDown={(e) => onResizeStart(e, node.id, "sw", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "sw", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
           />
           <div
             className="resize-handle resize-handle--se"
             style={{ ...resizeHandleStyle, bottom: "-6px", right: "-6px", cursor: "nwse-resize" }}
-            onMouseDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight)}
-            onPointerDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight)}
+            onMouseDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
+            onPointerDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
           />
         </>
       )}
@@ -260,6 +430,10 @@ function createInitialFlowNodes(language: "fr" | "en"): Node[] {
       nodeHeight: n.nodeHeight ?? 64,
       miniExplanationWidth: n.miniExplanationWidth ?? 180,
       miniExplanationHeight: n.miniExplanationHeight ?? 60,
+      summary: n.summary ? pick(n.summary, language) : "",
+      summaryWidth: n.summaryWidth ?? 520,
+      summaryHeight: n.summaryHeight ?? 120,
+      summaryOffsetX: n.summaryOffsetX ?? 0,
       highlighted: false,
       dimmed: false,
     },
@@ -526,6 +700,9 @@ export function BrainGraph({
             miniExplanation: updatedNode.miniExplanation
               ? pick(updatedNode.miniExplanation, language)
               : "",
+            summary: updatedNode.summary
+              ? pick(updatedNode.summary, language)
+              : "",
             highlighted: true,
             dimmed: false,
           },
@@ -689,10 +866,17 @@ export function BrainGraph({
             relatedConcepts: [],
             commonMistakes: { fr: [], en: [] },
             examples: { fr: [], en: [] },
+            summary: { fr: "", en: "" },
+            summaryWidth: 520,
+            summaryHeight: 120,
+            summaryOffsetX: 0,
           } as BrainNode,
           label: language === "fr" ? "Nouveau Nœud" : "New Node",
           nodeWidth: 180,
           nodeHeight: 64,
+          summaryWidth: 520,
+          summaryHeight: 120,
+          summaryOffsetX: 0,
           highlighted: false,
           dimmed: false,
         },
@@ -736,10 +920,17 @@ export function BrainGraph({
           relatedConcepts: [],
           commonMistakes: { fr: [], en: [] },
           examples: { fr: [], en: [] },
+          summary: { fr: "", en: "" },
+          summaryWidth: 520,
+          summaryHeight: 120,
+          summaryOffsetX: 0,
         } as BrainNode,
         label: language === "fr" ? "Nouveau Nœud" : "New Node",
         nodeWidth: 180,
         nodeHeight: 64,
+        summaryWidth: 520,
+        summaryHeight: 120,
+        summaryOffsetX: 0,
         highlighted: false,
         dimmed: false,
       },
@@ -867,7 +1058,10 @@ export function BrainGraph({
     nodeWidth: number,
     nodeHeight: number,
     miniWidth: number,
-    miniHeight: number
+    miniHeight: number,
+    summaryWidth: number,
+    summaryHeight: number,
+    summaryOffsetX: number
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -881,11 +1075,14 @@ export function BrainGraph({
       startHeight: nodeHeight,
       startMiniWidth: miniWidth,
       startMiniHeight: miniHeight,
+      startSummaryWidth: summaryWidth,
+      startSummaryHeight: summaryHeight,
+      startSummaryOffsetX: summaryOffsetX,
       isResizing: true,
     });
   }, []);
 
-  /** Handle resize move */
+  /** Handle resize move - unified handler for both node and summary */
   const handleResizeMove = useCallback((e: PointerEvent | MouseEvent) => {
     if (!resizeState || !resizeState.isResizing) return;
 
@@ -901,26 +1098,52 @@ export function BrainGraph({
         let newHeight = resizeState.startHeight;
         let newMiniWidth = resizeState.startMiniWidth;
         let newMiniHeight = resizeState.startMiniHeight;
+        let newSummaryWidth = resizeState.startSummaryWidth;
+        let newSummaryHeight = resizeState.startSummaryHeight;
+        let newSummaryOffsetX = resizeState.startSummaryOffsetX;
 
-        // Calculate new dimensions based on which handle is being dragged
-        if (resizeState.handle.includes('e') || resizeState.handle.includes('se') || resizeState.handle.includes('ne')) {
-          // East handles - increase width
+        // Summary drag mode - only update offset
+        if (resizeState.handle === 'summary-drag') {
+          newSummaryOffsetX = resizeState.startSummaryOffsetX + deltaX;
+          return {
+            ...node,
+            data: {
+              ...data,
+              summaryOffsetX: newSummaryOffsetX,
+            },
+          };
+        }
+
+        // Summary resize mode - only update summary dimensions
+        if (resizeState.handle.startsWith('summary-')) {
+          const summaryHandle = resizeState.handle.replace('summary-', '');
+          newSummaryWidth = Math.max(200, resizeState.startSummaryWidth + (summaryHandle.includes('e') ? deltaX : summaryHandle.includes('w') ? -deltaX : 0));
+          newSummaryHeight = Math.max(60, resizeState.startSummaryHeight + (summaryHandle.includes('s') ? deltaY : summaryHandle.includes('n') ? -deltaY : 0));
+          return {
+            ...node,
+            data: {
+              ...data,
+              summaryWidth: newSummaryWidth,
+              summaryHeight: newSummaryHeight,
+            },
+          };
+        }
+
+        // Main node resize mode - only update main node dimensions
+        if (resizeState.handle.includes('e')) {
           newWidth = Math.max(100, resizeState.startWidth + deltaX);
         }
-        if (resizeState.handle.includes('w') || resizeState.handle.includes('sw') || resizeState.handle.includes('nw')) {
-          // West handles - decrease width
+        if (resizeState.handle.includes('w')) {
           newWidth = Math.max(100, resizeState.startWidth - deltaX);
         }
-        if (resizeState.handle.includes('s') || resizeState.handle.includes('se') || resizeState.handle.includes('sw')) {
-          // South handles - increase height
+        if (resizeState.handle.includes('s')) {
           newHeight = Math.max(40, resizeState.startHeight + deltaY);
         }
-        if (resizeState.handle.includes('n') || resizeState.handle.includes('ne') || resizeState.handle.includes('nw')) {
-          // North handles - decrease height
+        if (resizeState.handle.includes('n')) {
           newHeight = Math.max(40, resizeState.startHeight - deltaY);
         }
 
-        // Mini explanation resizes proportionally or independently
+        // Mini explanation resizes with main node
         if (resizeState.handle === 'se' || resizeState.handle === 'sw') {
           newMiniWidth = Math.max(100, resizeState.startMiniWidth + deltaX);
           newMiniHeight = Math.max(30, resizeState.startMiniHeight + deltaY);
@@ -958,6 +1181,9 @@ export function BrainGraph({
           nodeHeight: data.nodeHeight,
           miniExplanationWidth: data.miniExplanationWidth,
           miniExplanationHeight: data.miniExplanationHeight,
+          summaryWidth: data.summaryWidth,
+          summaryHeight: data.summaryHeight,
+          summaryOffsetX: data.summaryOffsetX,
         });
       }
     }
@@ -966,6 +1192,72 @@ export function BrainGraph({
   }, [resizeState, nodes, onNodeUpdate]);
 
   /** Add global pointer event listeners for resizing */
+  useEffect(() => {
+    if (resizeState?.isResizing) {
+      window.addEventListener('pointermove', handleResizeMove);
+      window.addEventListener('pointerup', handleResizeEnd);
+      return () => {
+        window.removeEventListener('pointermove', handleResizeMove);
+        window.removeEventListener('pointerup', handleResizeEnd);
+      };
+    }
+  }, [resizeState?.isResizing, handleResizeMove, handleResizeEnd]);
+
+  /** Handle summary drag start */
+  const handleSummaryDragStart = useCallback((
+    e: React.PointerEvent | React.MouseEvent,
+    nodeId: string,
+    startX: number,
+    startSummaryOffsetX: number
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    setResizeState({
+      nodeId,
+      handle: 'summary-drag',
+      startX,
+      startY: 0,
+      startWidth: 0,
+      startHeight: 0,
+      startMiniWidth: 0,
+      startMiniHeight: 0,
+      startSummaryWidth: 0,
+      startSummaryHeight: 0,
+      startSummaryOffsetX,
+      isResizing: true,
+    });
+  }, []);
+
+  /** Handle summary resize start */
+  const handleSummaryResizeStart = useCallback((
+    e: React.PointerEvent | React.MouseEvent,
+    nodeId: string,
+    handle: string,
+    summaryWidth: number,
+    summaryHeight: number,
+    summaryOffsetX: number
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    setResizeState({
+      nodeId,
+      handle: `summary-${handle}`,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: 0,
+      startHeight: 0,
+      startMiniWidth: 0,
+      startMiniHeight: 0,
+      startSummaryWidth: summaryWidth,
+      startSummaryHeight: summaryHeight,
+      startSummaryOffsetX: summaryOffsetX,
+      isResizing: true,
+    });
+  }, []);
+
+  /** Add global pointer event listeners for resizing and summary dragging */
   useEffect(() => {
     if (resizeState?.isResizing) {
       window.addEventListener('pointermove', handleResizeMove);
@@ -992,8 +1284,13 @@ export function BrainGraph({
   }, [isConnecting, cancelConnection]);
 
   const nodeTypes = useMemo(() => ({
-    brain: memo((props: NodeProps) => <BrainNodeComponent {...props} onResizeStart={handleResizeStart} />),
-  }), [handleResizeStart]);
+    brain: memo((props: NodeProps) => <BrainNodeComponent 
+      {...props} 
+      onResizeStart={handleResizeStart}
+      onSummaryDragStart={handleSummaryDragStart}
+      onSummaryResizeStart={handleSummaryResizeStart}
+    />),
+  }), [handleResizeStart, handleSummaryDragStart, handleSummaryResizeStart]);
 
   const selectedBrainEdge = useMemo<BrainEdge | null>(() => {
     if (!selectedEdge) return null;

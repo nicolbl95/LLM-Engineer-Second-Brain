@@ -65,6 +65,14 @@ export interface BrainNode {
   miniExplanationHeight?: number;
   /** Custom font size for the node label (in pixels). */
   fontSize?: number;
+  /** Summary text displayed as an attached sub-node. */
+  summary?: LocalizedText;
+  /** Width of the summary sub-node in pixels. */
+  summaryWidth?: number;
+  /** Height of the summary sub-node in pixels. */
+  summaryHeight?: number;
+  /** Horizontal offset of the summary sub-node relative to the main node. */
+  summaryOffsetX?: number;
 }
 
 /** Connection between two nodes in the graph. */

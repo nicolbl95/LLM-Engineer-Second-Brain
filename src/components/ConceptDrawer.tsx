@@ -37,6 +37,10 @@ export function ConceptDrawer({
       relatedConcepts: [],
       commonMistakes: { fr: [], en: [] },
       examples: { fr: [], en: [] },
+      summary: { fr: "", en: "" },
+      summaryWidth: 520,
+      summaryHeight: 120,
+      summaryOffsetX: 0,
     }),
     [],
   );
@@ -92,8 +96,8 @@ export function ConceptDrawer({
             <label className="drawer__label">
               {language === "fr" ? "Titre" : "Title"}
             </label>
-            <input
-              className="drawer__input"
+            <textarea
+              className="drawer__textarea"
               value={currentDraft.title[language]}
               readOnly={isReadOnly}
               onChange={(e) =>
@@ -104,11 +108,6 @@ export function ConceptDrawer({
                   },
                 })
               }
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  onClose();
-                }
-              }}
             />
           </div>
 
@@ -131,13 +130,93 @@ export function ConceptDrawer({
             />
           </div>
 
+          <div className="drawer__field-row">
+            <label className="drawer__label">
+              {language === "fr" ? "Résumé" : "Summary"}
+            </label>
+            <textarea
+              className="drawer__textarea"
+              value={currentDraft.summary?.[language] ?? ""}
+              readOnly={isReadOnly}
+              onChange={(e) =>
+                updateDraft({
+                  summary: {
+                    fr: currentDraft.summary?.fr ?? "",
+                    en: currentDraft.summary?.en ?? "",
+                    [language]: e.target.value,
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">
+              {language === "fr" ? "Largeur du résumé" : "Summary width"}
+            </label>
+            <input
+              type="number"
+              className="drawer__input"
+              value={currentDraft.summaryWidth ?? 520}
+              min={200}
+              max={1200}
+              readOnly={isReadOnly}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!Number.isNaN(value) && value >= 200 && value <= 1200) {
+                  updateDraft({ summaryWidth: value });
+                }
+              }}
+            />
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">
+              {language === "fr" ? "Hauteur du résumé" : "Summary height"}
+            </label>
+            <input
+              type="number"
+              className="drawer__input"
+              value={currentDraft.summaryHeight ?? 120}
+              min={60}
+              max={600}
+              readOnly={isReadOnly}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!Number.isNaN(value) && value >= 60 && value <= 600) {
+                  updateDraft({ summaryHeight: value });
+                }
+              }}
+            />
+          </div>
+
+          <div className="drawer__field-row">
+            <label className="drawer__label">
+              {language === "fr" ? "Décalage horizontal du résumé" : "Summary horizontal offset"}
+            </label>
+            <input
+              type="number"
+              className="drawer__input"
+              value={currentDraft.summaryOffsetX ?? 0}
+              min={-400}
+              max={400}
+              readOnly={isReadOnly}
+              onChange={(e) => {
+                const value = parseInt(e.target.value, 10);
+                if (!Number.isNaN(value) && value >= -400 && value <= 400) {
+                  updateDraft({ summaryOffsetX: value });
+                }
+              }}
+            />
+          </div>
+
           {currentDraft.miniExplanation && (
             <div className="drawer__field-row">
               <label className="drawer__label">
                 {language === "fr" ? "Mini-explication" : "Mini-explanation"}
               </label>
-              <input
-                className="drawer__input"
+              <textarea
+                className="drawer__textarea"
                 value={currentDraft.miniExplanation[language]}
                 readOnly={isReadOnly}
                 onChange={(e) =>
@@ -149,11 +228,6 @@ export function ConceptDrawer({
                     },
                   })
                 }
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    onClose();
-                  }
-                }}
               />
             </div>
           )}
@@ -188,11 +262,6 @@ export function ConceptDrawer({
                   const value = parseInt(e.target.value, 10);
                   if (!Number.isNaN(value) && value >= 8 && value <= 72) {
                     updateDraft({ fontSize: value });
-                  }
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    onClose();
                   }
                 }}
               />

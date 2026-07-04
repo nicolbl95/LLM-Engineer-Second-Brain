@@ -62,6 +62,10 @@ type ConceptInput = {
   mistakes: { fr: string[]; en: string[] };
   examples: { fr: string[]; en: string[] };
   fontSize?: number;
+  summary?: { fr: string; en: string };
+  summaryWidth?: number;
+  summaryHeight?: number;
+  summaryOffsetX?: number;
 };
 
 /** Build a full BrainNode from compact concept input. */
@@ -86,6 +90,10 @@ function concept(c: ConceptInput): BrainNode {
     examples: c.examples,
     miniExplanation: c.short,
     fontSize: c.fontSize,
+    summary: c.summary,
+    summaryWidth: c.summaryWidth,
+    summaryHeight: c.summaryHeight,
+    summaryOffsetX: c.summaryOffsetX,
   };
 }
 
@@ -942,6 +950,13 @@ const centralNode: BrainNode = {
     "Centre du graphe — parcours GenAI structuré.",
     "Graph center — structured GenAI journey.",
   ),
+  summary: lt(
+    "Ce graphe représente ton parcours complet pour devenir ingénieur LLM.",
+    "This graph represents your complete journey to become an LLM engineer.",
+  ),
+  summaryWidth: 520,
+  summaryHeight: 120,
+  summaryOffsetX: 0,
 };
 
 /** Eight pillar nodes arranged around the center. */
