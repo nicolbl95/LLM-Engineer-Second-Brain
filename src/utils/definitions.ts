@@ -104,7 +104,7 @@ function findMatchingNode(term: string): BrainNode | null {
 }
 
 
-function buildMetaphorFromNode(node: BrainNode, language: Language): string {
+export function buildMetaphorFromNode(node: BrainNode, language: Language): string {
   const isEn = language === "en";
   
   // Try to extract metaphor from examples or create one based on node type
@@ -305,50 +305,18 @@ function buildFallbackDefinition(term: string, language: Language, _graphContext
       en: {
         term: "Agent (Autonomous entity)",
         simpleDefinition: `An AI agent is an autonomous system that can perceive its environment, make decisions, and act to achieve specific goals. Unlike a regular LLM that answers a question and stops there, an agent can plan multiple steps, use tools (like APIs, databases, search engines), and iterate until it reaches its goal. Agents often use architectures like ReAct (Reasoning + Acting) that alternate between thinking and acting.`,
-        metaphor: `Imagine an autonomous worker to whom you give a mission: "Prepare a market report on electric cars." Instead of answering directly, this worker will: 1) search for recent information on the Internet, 2) read specialized articles, 3) extract sales data, 4) organize the information, 5) write the report, and 6) present it to you. They make decisions throughout the process and can adjust their strategy if something isn't working.`,
-        whyItMatters: `Agents represent a major evolution in LLM usage. Instead of simple question-answer interactions, agents can accomplish complex tasks autonomously. This is particularly powerful for workflow automation, complex problem-solving, and creating truly useful assistants. For an LLM engineer, understanding how to design, implement, and evaluate agents has become a critical skill, as it's one of the most important trends in enterprise AI deployment.`,
+        metaphor: `Imagine an autonomous worker to whom you give a mission: "Prepare a market report on electric cars." Instead of answering directly, this worker will: 1) search for recent information on the Internet, 2) read specialized articles, 3) extract sales data, 4) organize the information, 5) write the report, and 6) present it to you. They make decisions throughout the process and can adjust their strategy if something doesn't work.`,
+        whyItMatters: `Agents represent a major evolution in the use of LLMs. Instead of simple question-answer interactions, agents can accomplish complex tasks autonomously. This is particularly powerful for workflow automation, solving complex problems, and creating truly useful assistants. For an LLM engineer, understanding how to design, implement, and evaluate agents has become a critical skill, as it is one of the most important trends in enterprise AI deployment.`,
         foundInGraph: false,
       }
-    },
-    "workflow": {
-      fr: {
-        term: "Workflow (Flux de travail)",
-        simpleDefinition: `Un workflow dans le contexte de l'IA est une séquence orchestrée d'étapes ou de tâches qu'un système IA doit exécuter pour accomplir un objectif complexe. Contrairement à une simple requête à un LLM, un workflow structure le processus en étapes distinctes avec des dépendances claires. Par exemple, un workflow de création de contenu pourrait inclure : 1) recherche d'informations, 2) génération d'un plan, 3) écriture du contenu, 4) relecture et amélioration, 5) vérification des faits. Des outils comme LangGraph permettent de créer ces workflows de manière visuelle et programmatique.`,
-        metaphor: `Pensez au workflow comme à une recette de cuisine détaillée. Si vous voulez faire un gâteau complexe, vous suivez une série d'étapes : préparer les ingrédients, mélanger dans un ordre précis, cuire à une température donnée pendant un temps spécifique, puis décorer. Chaque étape dépend de la précédente, et si vous sautez une étape, le résultat peut être désastreux. Un workflow IA fonctionne de la même manière : chaque étape prépare le terrain pour la suivante.`,
-        whyItMatters: `Les workflows sont essentiels pour transformer des LLMs en systèmes fiables et reproductibles. Sans workflow, chaque interaction avec un LLM est une boîte noire difficile à contrôler. Avec un workflow, vous pouvez : gérer des tâches complexes en plusieurs étapes, intégrer des outils externes (APIs, bases de données), gérer les erreurs et les cas limites, et créer des processus reproductibles. Pour un ingénieur LLM, maîtriser les frameworks de workflow comme LangGraph est crucial pour construire des applications IA robustes en production.`,
-        foundInGraph: false,
-      },
-      en: {
-        term: "Workflow",
-        simpleDefinition: `A workflow in the context of AI is an orchestrated sequence of steps or tasks that an AI system must execute to accomplish a complex goal. Unlike a simple LLM query, a workflow structures the process into distinct steps with clear dependencies. For example, a content creation workflow might include: 1) research information, 2) generate an outline, 3) write the content, 4) review and improve, 5) fact-check. Tools like LangGraph allow you to create these workflows visually and programmatically.`,
-        metaphor: `Think of a workflow like a detailed cooking recipe. If you want to make a complex cake, you follow a series of steps: prepare ingredients, mix in a specific order, bake at a specific temperature for a specific time, then decorate. Each step depends on the previous one, and if you skip a step, the result can be disastrous. An AI workflow works the same way: each step prepares the ground for the next.`,
-        whyItMatters: `Workflows are essential for transforming LLMs into reliable, reproducible systems. Without a workflow, each interaction with an LLM is a black box that's difficult to control. With a workflow, you can: manage complex multi-step tasks, integrate external tools (APIs, databases), handle errors and edge cases, and create reproducible processes. For an LLM engineer, mastering workflow frameworks like LangGraph is crucial for building robust AI applications in production.`,
-        foundInGraph: false,
-      }
-    },
+    }
   };
 
-  const definition = definitions[lowerTerm];
-  if (definition) {
-    return isEn ? definition.en : definition.fr;
-  }
-
-  // Generic fallback for unknown terms
-  if (isEn) {
-    return {
-      term: term,
-      simpleDefinition: `"${term}" is a technical concept in the field of AI and LLM engineering. This term refers to a specific technique, tool, or concept used in building intelligent systems. While this concept is not yet fully covered in your second brain with detailed explanations, it represents an important area of knowledge for anyone working with modern AI technologies. Understanding this term will help you better comprehend how advanced AI systems are designed and implemented.`,
-      metaphor: `Think of "${term}" as a specialized tool in a craftsman's workshop. Just as a carpenter has specific tools for cutting, measuring, and joining wood, an LLM engineer has specific concepts and techniques like this one for building intelligent systems. Each tool has its purpose, and mastering them all allows you to build increasingly sophisticated AI applications.`,
-      whyItMatters: `Learning about "${term}" is valuable because the field of AI and LLM engineering is built on many interconnected concepts. Understanding this term will help you: 1) Better comprehend how modern AI systems work, 2) Make more informed decisions when designing AI applications, 3) Communicate more effectively with other AI professionals, and 4) Identify when this technique might be useful in your own projects. Consider adding this concept to your knowledge graph to deepen your expertise and track your learning progress.`,
-      foundInGraph: false,
-    };
-  } else {
-    return {
-      term: term,
-      simpleDefinition: `« ${term} » est un concept technique dans le domaine de l'IA et de l'ingénierie LLM. Ce terme fait référence à une technique, un outil ou un concept spécifique utilisé pour construire des systèmes intelligents. Bien que ce concept ne soit pas encore entièrement couvert dans votre second cerveau avec des explications détaillées, il représente un domaine de connaissances important pour toute personne travaillant avec les technologies IA modernes. Comprendre ce terme vous aidera à mieux saisir comment les systèmes IA avancés sont conçus et implémentés.`,
-      metaphor: `Pensez à « ${term} » comme à un outil spécialisé dans l'atelier d'un artisan. Tout comme un charpentier a des outils spécifiques pour couper, mesurer et assembler le bois, un ingénieur LLM a des concepts et techniques spécifiques comme celui-ci pour construire des systèmes intelligents. Chaque outil a son utilité, et les maîtriser tous permet de construire des applications IA de plus en plus sophistiquées.`,
-      whyItMatters: `Apprendre à propos de « ${term} » est précieux car le domaine de l'IA et de l'ingénierie LLM est construit sur de nombreux concepts interconnectés. Comprendre ce terme vous aidera à : 1) Mieux comprendre comment les systèmes IA modernes fonctionnent, 2) Prendre des décisions plus éclairées lors de la conception d'applications IA, 3) Communiquer plus efficacement avec d'autres professionnels de l'IA, et 4) Identifier quand cette technique pourrait être utile dans vos propres projets. Envisagez d'ajouter ce concept à votre graphe de connaissances pour approfondir votre expertise et suivre votre progression d'apprentissage.`,
-      foundInGraph: false,
-    };
-  }
+  return definitions[lowerTerm]?.[language] || {
+    term: term,
+    simpleDefinition: isEn ? "Definition not found." : "Définition non trouvée.",
+    metaphor: isEn ? "Metaphor not available." : "Métaphore non disponible.",
+    whyItMatters: isEn ? "Importance not available." : "Importance non disponible.",
+    foundInGraph: false,
+  };
 }
