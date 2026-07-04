@@ -136,7 +136,7 @@ function BrainNodeComponent({
   const summaryHeight = flowData.summaryHeight ?? 120;
   const summaryOffsetX = flowData.summaryOffsetX ?? 0;
 
-  // Resize handle props
+  // Resize handle props - shared style for both node and summary
   const showResizeHandles = selected && isEditing;
   const resizeHandleStyle: CSSProperties = {
     position: "absolute",
@@ -236,24 +236,12 @@ function BrainNodeComponent({
           
           <div className="brain-node__summary-content">{summaryText}</div>
           
-          {/* Summary resize handles - all 4 corners */}
-          {selected && onSummaryResizeStart && (
+          {/* Summary resize handles - using same class as main node for identical appearance */}
+          {showResizeHandles && onSummaryResizeStart && (
             <>
               <div
-                className="summary-resize-handle summary-resize-handle--nw"
-                style={{ 
-                  position: 'absolute',
-                  top: '-7px', 
-                  left: '-7px', 
-                  width: '14px', 
-                  height: '14px',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid rgba(99, 102, 241, 0.9)',
-                  borderRadius: '50%',
-                  cursor: 'nwse-resize',
-                  zIndex: 12,
-                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
-                }}
+                className="resize-handle resize-handle--nw"
+                style={{ zIndex: 12 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -266,20 +254,8 @@ function BrainNodeComponent({
                 }}
               />
               <div
-                className="summary-resize-handle summary-resize-handle--ne"
-                style={{ 
-                  position: 'absolute',
-                  top: '-7px', 
-                  right: '-7px', 
-                  width: '14px', 
-                  height: '14px',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid rgba(99, 102, 241, 0.9)',
-                  borderRadius: '50%',
-                  cursor: 'nesw-resize',
-                  zIndex: 12,
-                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
-                }}
+                className="resize-handle resize-handle--ne"
+                style={{ zIndex: 12 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -292,20 +268,8 @@ function BrainNodeComponent({
                 }}
               />
               <div
-                className="summary-resize-handle summary-resize-handle--sw"
-                style={{ 
-                  position: 'absolute',
-                  bottom: '-7px', 
-                  left: '-7px', 
-                  width: '14px', 
-                  height: '14px',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid rgba(99, 102, 241, 0.9)',
-                  borderRadius: '50%',
-                  cursor: 'nesw-resize',
-                  zIndex: 12,
-                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
-                }}
+                className="resize-handle resize-handle--sw"
+                style={{ zIndex: 12 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   e.preventDefault();
@@ -318,20 +282,8 @@ function BrainNodeComponent({
                 }}
               />
               <div
-                className="summary-resize-handle summary-resize-handle--se"
-                style={{ 
-                  position: 'absolute',
-                  bottom: '-7px', 
-                  right: '-7px', 
-                  width: '14px', 
-                  height: '14px',
-                  backgroundColor: '#ffffff',
-                  border: '2px solid rgba(99, 102, 241, 0.9)',
-                  borderRadius: '50%',
-                  cursor: 'nwse-resize',
-                  zIndex: 12,
-                  boxShadow: '0 0 10px rgba(99, 102, 241, 0.6)'
-                }}
+                className="resize-handle resize-handle--se"
+                style={{ zIndex: 12 }}
                 onMouseDown={(e) => {
                   e.stopPropagation();
                   e.preventDefault();

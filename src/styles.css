@@ -692,41 +692,9 @@ body {
   transform: translateX(-50%) scale(1.1);
 }
 
-/* Summary resize handles - bottom corners only */
-.summary-resize-handle {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  background-color: #ffffff;
-  border: 2px solid rgba(99, 102, 241, 0.9);
-  border-radius: 50%;
-  cursor: nwse-resize;
-  z-index: 12;
-  box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
-  opacity: 0;
-  transition: opacity 0.2s, transform 0.15s;
-}
-
-.brain-node--selected .summary-resize-handle {
-  opacity: 1;
-}
-
-.summary-resize-handle:hover {
-  transform: scale(1.3);
-  box-shadow: 0 0 14px rgba(99, 102, 241, 0.9);
-}
-
-.summary-resize-handle--sw {
-  bottom: -7px;
-  left: -7px;
-  cursor: nwse-resize;
-}
-
-.summary-resize-handle--se {
-  bottom: -7px;
-  right: -7px;
-  cursor: nwse-resize;
-}
+/* Summary resize handles - using same .resize-handle class as main node */
+/* The handles are rendered with className="resize-handle resize-handle--nw" etc. */
+/* This ensures they look identical to main node handles */
 
 .brain-node--selected {
   box-shadow: 0 0 0 3px var(--node-color), 0 0 20px color-mix(in srgb, var(--node-color) 55%, transparent);
