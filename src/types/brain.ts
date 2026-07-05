@@ -113,6 +113,25 @@ export interface SavedNote {
   createdAt: string;
 }
 
+/** Custom definition created by the user. */
+export interface CustomDefinition {
+  id: string;
+  term: string;
+  definition: {
+    fr: string;
+    en: string;
+  };
+  metaphor: {
+    fr: string;
+    en: string;
+  };
+  whyItMatters: {
+    fr: string;
+    en: string;
+  };
+  createdAt: string;
+}
+
 /** Build Project analysis result. */
 export interface ProjectAnalysis {
   projectType: LocalizedText;

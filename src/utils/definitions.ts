@@ -1,6 +1,7 @@
-import type { BrainNode, Language } from "../types/brain";
+import type { BrainNode, CustomDefinition, Language } from "../types/brain";
 import { brainNodes } from "../data/graph";
 import { pick } from "./i18n";
+import { loadCustomDefinitions, findCustomDefinition } from "./customDefinitions";
 
 
 interface DefinitionResult {
@@ -10,6 +11,9 @@ interface DefinitionResult {
   whyItMatters: string;
   foundInGraph: boolean;
   nodeId?: string;
+  isCustomDefinition?: boolean;
+  notFound?: boolean;
+  suggestions?: string[];
 }
 
 /**
@@ -48,29 +52,122 @@ export function generateDefinition(term: string, language: Language): Definition
   if (!trimmed) {
     return {
       term: trimmed,
-      simpleDefinition: language === "fr" ? "" : "",
-      metaphor: language === "fr" ? "" : "",
-      whyItMatters: language === "fr" ? "" : "",
+      simpleDefinition: "",
+      metaphor: "",
+      whyItMatters: "",
       foundInGraph: false,
+      notFound: false,
     };
   }
 
   // Normalize the term
   const normalizedTerm = normalizeTerm(trimmed);
   
-  // Search for matching node in graph (for context only)
-  const matchedNode = findMatchingNode(normalizedTerm);
+  // Check for custom definition in localStorage
+  const customDefinitions = loadCustomDefinitions();
+  const customDef = findCustomDefinition(normalizedTerm, customDefinitions);
   
-  // Get graph context if available
-  const graphContext = matchedNode ? {
-    title: pick(matchedNode.title, language),
-    summary: pick(matchedNode.shortSummary, language),
-    explanation: pick(matchedNode.simpleExplanation, language),
-    deepExplanation: pick(matchedNode.deepExplanation, language),
-  } : null;
+  if (customDef) {
+    // Check if the current language has content
+    const hasCurrentLanguage = language === "fr" 
+      ? customDef.definition.fr 
+      : customDef.definition.en;
+    
+    if (hasCurrentLanguage) {
+      // Return custom definition for the current language
+      return {
+        term: customDef.term,
+        simpleDefinition: language === "fr" ? customDef.definition.fr : customDef.definition.en,
+        metaphor: language === "fr" ? customDef.metaphor.fr : customDef.metaphor.en,
+        whyItMatters: language === "fr" ? customDef.whyItMatters.fr : customDef.whyItMatters.en,
+        foundInGraph: false,
+        isCustomDefinition: true,
+        notFound: false,
+      };
+    } else {
+      // Custom definition exists but not in current language
+      return {
+        term: customDef.term,
+        simpleDefinition: language === "fr" 
+          ? `Cette définition existe, mais elle n'a pas encore été remplie en français.`
+          : `This definition exists, but it has not been filled in English yet.`,
+        metaphor: "",
+        whyItMatters: "",
+        foundInGraph: false,
+        isCustomDefinition: true,
+        notFound: false,
+      };
+    }
+  }
+  
+  // No custom definition found - return not found with suggestions
+  const suggestions = findSimilarDefinitions(normalizedTerm, customDefinitions);
+  
+  return {
+    term: trimmed,
+    simpleDefinition: "",
+    metaphor: "",
+    whyItMatters: "",
+    foundInGraph: false,
+    notFound: true,
+    suggestions: suggestions,
+  };
+}
 
-  // Always generate from comprehensive templates, using graph data as context
-  return buildFallbackDefinition(normalizedTerm, language, graphContext);
+/**
+ * Find similar custom definitions using Levenshtein distance
+ */
+function findSimilarDefinitions(term: string, definitions: CustomDefinition[]): string[] {
+  if (definitions.length === 0) return [];
+  
+  const normalizedInput = term.toLowerCase();
+  
+  // Calculate similarity scores
+  const scored = definitions
+    .map(def => {
+      const normalizedDef = def.term.toLowerCase();
+      const distance = levenshteinDistance(normalizedInput, normalizedDef);
+      const maxLength = Math.max(normalizedInput.length, normalizedDef.length);
+      const similarity = maxLength === 0 ? 1 : 1 - (distance / maxLength);
+      return { term: def.term, similarity };
+    })
+    .filter(item => item.similarity > 0.5) // Only include reasonably similar terms
+    .sort((a, b) => b.similarity - a.similarity) // Sort by similarity descending
+    .slice(0, 5) // Take top 5
+    .map(item => item.term);
+  
+  return scored;
+}
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+  
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  
+  return matrix[b.length][a.length];
 }
 
 function findMatchingNode(term: string): BrainNode | null {
