@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
-import { Trash2, BookOpen, Plus, Database } from "lucide-react";
+import { Trash2, BookOpen, Plus, Database, Clipboard } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
 import type { CustomDefinition } from "../types/brain";
-import { addCustomDefinition, loadCustomDefinitions } from "../utils/customDefinitions";
+import {
+  addCustomDefinition,
+  loadCustomDefinitions,
+} from "../utils/customDefinitions";
 
 interface DefinitionResult {
   term: string;
@@ -20,8 +23,10 @@ interface CommandPanelProps {
   onClearDefinition?: () => void;
 }
 
+type DefinitionTab = "define" | "add" | "saved";
+
 /**
- * Bottom panel - Definition and custom definition management
+ * Bottom panel - Definition and custom definition management.
  */
 export function CommandPanel({
   definitionResult,
@@ -29,34 +34,34 @@ export function CommandPanel({
   onClearDefinition,
 }: CommandPanelProps) {
   const { language } = useLanguage();
-  const [input, setInput] = useState("");
-  const [activeTab, setActiveTab] = useState<"define" | "add" | "saved">("define");
 
-  // Form state for adding custom definitions
+  const [input, setInput] = useState("");
+  const [activeTab, setActiveTab] = useState<DefinitionTab>("define");
+
   const [formTerm, setFormTerm] = useState("");
   const [formDefinition, setFormDefinition] = useState("");
   const [formMetaphor, setFormMetaphor] = useState("");
   const [formWhyItMatters, setFormWhyItMatters] = useState("");
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [savedDefinitions, setSavedDefinitions] = useState<CustomDefinition[]>([]);
+  const [savedDefinitions, setSavedDefinitions] = useState<CustomDefinition[]>(
+    [],
+  );
+  const [copySuccess, setCopySuccess] = useState(false);
 
-  // Load saved definitions count
   useEffect(() => {
-    const definitions = loadCustomDefinitions();
-    setSavedDefinitions(definitions);
+    setSavedDefinitions(loadCustomDefinitions());
   }, [saveSuccess]);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
     if (!trimmed) return;
+
     onDefine?.(trimmed);
   };
 
   const handleClearDefinition = () => {
-    if (onClearDefinition) {
-      onClearDefinition();
-      setInput("");
-    }
+    onClearDefinition?.();
+    setInput("");
   };
 
   const handleSaveCustomDefinition = () => {
@@ -79,13 +84,64 @@ export function CommandPanel({
       },
     });
 
-    // Clear form and show success message
     setFormTerm("");
     setFormDefinition("");
     setFormMetaphor("");
     setFormWhyItMatters("");
+    setSavedDefinitions(loadCustomDefinitions());
     setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 3000);
+
+    window.setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const openSavedDefinition = (term: string) => {
+    setActiveTab("define");
+    setInput(term);
+    onDefine?.(term);
+  };
+
+  const copyAllDefinitions = async () => {
+    if (savedDefinitions.length === 0) {
+      const message = language === "fr" ? "Aucune définition à copier." : "No definitions to copy.";
+      alert(message);
+      return;
+    }
+
+    const isFr = language === "fr";
+    const placeholder = isFr ? "Non renseigné." : "Not provided.";
+    const separator = "---";
+
+    const text = savedDefinitions
+      .map((def) => {
+        const termLabel = isFr ? "Mot ou expression" : "Word or expression";
+        const defLabel = isFr ? "Définition simple" : "Simple definition";
+        const metaphorLabel = isFr ? "Métaphore" : "Metaphor";
+        const whyLabel = isFr ? "Pourquoi c'est important" : "Why it matters";
+
+        const definition = def.definition[language] || placeholder;
+        const metaphor = def.metaphor[language] || placeholder;
+        const whyItMatters = def.whyItMatters[language] || placeholder;
+
+        return `${termLabel} : ${def.term}
+
+${defLabel} :
+${definition}
+
+${metaphorLabel} :
+${metaphor}
+
+${whyLabel} :
+${whyItMatters}`;
+      })
+      .join(`\n${separator}\n\n`);
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to copy to clipboard:", error);
+    }
   };
 
   return (
@@ -95,7 +151,9 @@ export function CommandPanel({
       <div className="command-panel__tabs">
         <button
           type="button"
-          className={`command-tab ${activeTab === "define" ? "command-tab--active" : ""}`}
+          className={`command-tab ${
+            activeTab === "define" ? "command-tab--active" : ""
+          }`}
           onClick={() => setActiveTab("define")}
           aria-label={language === "fr" ? "Définition" : "Definition"}
         >
@@ -105,9 +163,13 @@ export function CommandPanel({
 
         <button
           type="button"
-          className={`command-tab ${activeTab === "add" ? "command-tab--active" : ""}`}
+          className={`command-tab ${
+            activeTab === "add" ? "command-tab--active" : ""
+          }`}
           onClick={() => setActiveTab("add")}
-          aria-label={language === "fr" ? "Ajouter une définition" : "Add definition"}
+          aria-label={
+            language === "fr" ? "Ajouter une définition" : "Add definition"
+          }
         >
           <Plus size={16} />
           {language === "fr" ? "Ajouter une définition" : "Add definition"}
@@ -115,9 +177,15 @@ export function CommandPanel({
 
         <button
           type="button"
-          className={`command-tab ${activeTab === "saved" ? "command-tab--active" : ""}`}
+          className={`command-tab ${
+            activeTab === "saved" ? "command-tab--active" : ""
+          }`}
           onClick={() => setActiveTab("saved")}
-          aria-label={language === "fr" ? `Définitions enregistrées (${savedDefinitions.length})` : `Saved definitions (${savedDefinitions.length})`}
+          aria-label={
+            language === "fr"
+              ? `Définitions enregistrées (${savedDefinitions.length})`
+              : `Saved definitions (${savedDefinitions.length})`
+          }
         >
           <Database size={16} />
           {language === "fr" ? "Définitions enregistrées" : "Saved definitions"}
@@ -129,8 +197,16 @@ export function CommandPanel({
             type="button"
             className="command-tab command-tab--clear"
             onClick={handleClearDefinition}
-            aria-label={language === "fr" ? "Effacer l'historique des définitions" : "Clear definition history"}
-            title={language === "fr" ? "Effacer l'historique des définitions" : "Clear definition history"}
+            aria-label={
+              language === "fr"
+                ? "Effacer l'historique des définitions"
+                : "Clear definition history"
+            }
+            title={
+              language === "fr"
+                ? "Effacer l'historique des définitions"
+                : "Clear definition history"
+            }
           >
             <Trash2 size={16} />
           </button>
@@ -138,7 +214,7 @@ export function CommandPanel({
       </div>
 
       <div className="command-panel__body">
-        {activeTab === "define" ? (
+        {activeTab === "define" && (
           <>
             <h3 className="command-panel__title">
               {language === "fr" ? "Définition" : "Definition"}
@@ -183,48 +259,52 @@ export function CommandPanel({
                         ? "Ce mot ou cette expression n'est pas encore défini."
                         : "This word or expression is not defined yet."}
                     </p>
-                    {definitionResult.suggestions && definitionResult.suggestions.length > 0 && (
-                      <div className="definition-suggestions">
-                        <span className="definition-suggestions__label">
-                          {language === "fr" ? "Suggestions proches :" : "Close suggestions:"}
-                        </span>
-                        <div className="definition-suggestions__list">
-                          {definitionResult.suggestions.map((suggestion, index) => (
-                            <button
-                              key={index}
-                              type="button"
-                              className="definition-suggestion-chip"
-                              onClick={() => {
-                                setInput(suggestion);
-                                onDefine?.(suggestion);
-                              }}
-                            >
-                              {suggestion}
-                            </button>
-                          ))}
+
+                    {definitionResult.suggestions &&
+                      definitionResult.suggestions.length > 0 && (
+                        <div className="definition-suggestions">
+                          <span className="definition-suggestions__label">
+                            {language === "fr"
+                              ? "Suggestions proches :"
+                              : "Close suggestions:"}
+                          </span>
+
+                          <div className="definition-suggestions__list">
+                            {definitionResult.suggestions.map((suggestion) => (
+                              <button
+                                key={suggestion}
+                                type="button"
+                                className="definition-suggestion-chip"
+                                onClick={() => openSavedDefinition(suggestion)}
+                              >
+                                {suggestion}
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 ) : (
                   <div className="definition-result">
                     <div className="definition-section">
                       <h5>
-                        {language === "fr" ? "Définition simple" : "Simple definition"}
+                        {language === "fr"
+                          ? "Définition simple"
+                          : "Simple definition"}
                       </h5>
                       <p>{definitionResult.simpleDefinition}</p>
                     </div>
 
                     <div className="definition-section">
-                      <h5>
-                        {language === "fr" ? "Métaphore" : "Metaphor"}
-                      </h5>
+                      <h5>{language === "fr" ? "Métaphore" : "Metaphor"}</h5>
                       <p>{definitionResult.metaphor}</p>
                     </div>
 
                     <div className="definition-section">
                       <h5>
-                        {language === "fr" ? "Pourquoi c'est important" : "Why it matters"}
+                        {language === "fr"
+                          ? "Pourquoi c'est important"
+                          : "Why it matters"}
                       </h5>
                       <p>{definitionResult.whyItMatters}</p>
                     </div>
@@ -243,7 +323,9 @@ export function CommandPanel({
               </div>
             )}
           </>
-        ) : (
+        )}
+
+        {activeTab === "add" && (
           <>
             <h3 className="command-panel__title">
               {language === "fr" ? "Ajouter une définition" : "Add definition"}
@@ -252,7 +334,7 @@ export function CommandPanel({
             {saveSuccess && (
               <div className="command-panel__success-message">
                 {language === "fr"
-                  ? "✓ Définition enregistrée avec succès!"
+                  ? "✓ Définition enregistrée avec succès !"
                   : "✓ Definition saved successfully!"}
               </div>
             )}
@@ -278,7 +360,9 @@ export function CommandPanel({
 
               <div className="form-group">
                 <label htmlFor="form-definition">
-                  {language === "fr" ? "Définition simple" : "Simple definition"}
+                  {language === "fr"
+                    ? "Définition simple"
+                    : "Simple definition"}
                 </label>
                 <textarea
                   id="form-definition"
@@ -314,7 +398,9 @@ export function CommandPanel({
 
               <div className="form-group">
                 <label htmlFor="form-why">
-                  {language === "fr" ? "Pourquoi c'est important" : "Why it matters"}
+                  {language === "fr"
+                    ? "Pourquoi c'est important"
+                    : "Why it matters"}
                 </label>
                 <textarea
                   id="form-why"
@@ -336,19 +422,63 @@ export function CommandPanel({
                 onClick={handleSaveCustomDefinition}
                 disabled={!formTerm.trim()}
               >
-                {language === "fr" ? "Enregistrer la définition" : "Save definition"}
+                {language === "fr"
+                  ? "Enregistrer la définition"
+                  : "Save definition"}
               </button>
             </div>
           </>
-        ) : (
+        )}
+
+        {activeTab === "saved" && (
           <>
-            <h3 className="command-panel__title">
-              {language === "fr" ? "Définitions enregistrées" : "Saved definitions"}
-            </h3>
+            <div className="saved-definitions__header">
+              <h3 className="command-panel__title">
+                {language === "fr"
+                  ? "Définitions enregistrées"
+                  : "Saved definitions"}
+              </h3>
+
+              <button
+                type="button"
+                className="saved-definitions__copy-btn"
+                onClick={copyAllDefinitions}
+                disabled={savedDefinitions.length === 0}
+                aria-label={
+                  language === "fr"
+                    ? "Copier toutes les définitions"
+                    : "Copy all definitions"
+                }
+                title={
+                  language === "fr"
+                    ? "Copier toutes les définitions"
+                    : "Copy all definitions"
+                }
+              >
+                <Clipboard size={16} />
+                {copySuccess && (
+                  <span className="copy-success-text">
+                    {language === "fr"
+                      ? "Copié !"
+                      : "Copied!"}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {copySuccess && (
+              <div className="command-panel__success-message">
+                {language === "fr"
+                  ? "Définitions copiées dans le presse-papier."
+                  : "Definitions copied to clipboard."}
+              </div>
+            )}
 
             {savedDefinitions.length === 0 ? (
               <div className="saved-definitions-empty">
-                {language === "fr" ? "Aucune définition enregistrée." : "No saved definitions."}
+                {language === "fr"
+                  ? "Aucune définition enregistrée."
+                  : "No saved definitions."}
               </div>
             ) : (
               <div className="saved-definitions-list">
@@ -357,11 +487,7 @@ export function CommandPanel({
                     key={def.id}
                     type="button"
                     className="saved-definition-chip"
-                    onClick={() => {
-                      setActiveTab("define");
-                      setInput(def.term);
-                      onDefine?.(def.term);
-                    }}
+                    onClick={() => openSavedDefinition(def.term)}
                   >
                     {def.term}
                   </button>

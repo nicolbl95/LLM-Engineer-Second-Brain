@@ -1794,6 +1794,51 @@ body {
   margin-bottom: 12px;
 }
 
+/* Saved definitions header with copy button */
+.saved-definitions__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.saved-definitions__copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 0.8rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-weight: 500;
+}
+
+.saved-definitions__copy-btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.saved-definitions__copy-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.saved-definitions__copy-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.copy-success-text {
+  color: var(--success);
+  font-weight: 600;
+}
+
 /* Saved definitions button */
 .command-tab--saved {
   position: relative;
