@@ -5,6 +5,7 @@ import type { CustomDefinition } from "../types/brain";
 import {
   addCustomDefinition,
   loadCustomDefinitions,
+  deleteCustomDefinitions,
 } from "../utils/customDefinitions";
 
 interface DefinitionResult {
@@ -47,6 +48,10 @@ export function CommandPanel({
     [],
   );
   const [copySuccess, setCopySuccess] = useState(false);
+  const [deleteMode, setDeleteMode] = useState(false);
+  const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(
+    new Set(),
+  );
 
   useEffect(() => {
     setSavedDefinitions(loadCustomDefinitions());
@@ -98,6 +103,41 @@ export function CommandPanel({
     setActiveTab("define");
     setInput(term);
     onDefine?.(term);
+  };
+
+  const handleDeleteClick = () => {
+    if (!deleteMode) {
+      // First click: activate delete mode
+      setDeleteMode(true);
+      setSelectedForDeletion(new Set());
+    } else {
+      // Second click: delete selected definitions
+      if (selectedForDeletion.size > 0) {
+        deleteCustomDefinitions(Array.from(selectedForDeletion));
+        setSavedDefinitions(loadCustomDefinitions());
+      }
+      // Exit delete mode
+      setDeleteMode(false);
+      setSelectedForDeletion(new Set());
+    }
+  };
+
+  const handleChipClick = (def: CustomDefinition) => {
+    if (deleteMode) {
+      // In delete mode: toggle selection
+      setSelectedForDeletion((prev) => {
+        const newSet = new Set(prev);
+        if (newSet.has(def.id)) {
+          newSet.delete(def.id);
+        } else {
+          newSet.add(def.id);
+        }
+        return newSet;
+      });
+    } else {
+      // Normal mode: open definition
+      openSavedDefinition(def.term);
+    }
   };
 
   const copyAllDefinitions = async () => {
@@ -439,31 +479,54 @@ ${whyItMatters}`;
                   : "Saved definitions"}
               </h3>
 
-              <button
-                type="button"
-                className="saved-definitions__copy-btn"
-                onClick={copyAllDefinitions}
-                disabled={savedDefinitions.length === 0}
-                aria-label={
-                  language === "fr"
-                    ? "Copier toutes les définitions"
-                    : "Copy all definitions"
-                }
-                title={
-                  language === "fr"
-                    ? "Copier toutes les définitions"
-                    : "Copy all definitions"
-                }
-              >
-                <Clipboard size={16} />
-                {copySuccess && (
-                  <span className="copy-success-text">
-                    {language === "fr"
-                      ? "Copié !"
-                      : "Copied!"}
-                  </span>
-                )}
-              </button>
+              <div className="saved-definitions__actions">
+                <button
+                  type="button"
+                  className={`saved-definitions__delete-btn ${
+                    deleteMode ? "saved-definitions__delete-btn--active" : ""
+                  }`}
+                  onClick={handleDeleteClick}
+                  disabled={savedDefinitions.length === 0}
+                  aria-label={
+                    language === "fr"
+                      ? "Supprimer des définitions"
+                      : "Delete definitions"
+                  }
+                  title={
+                    language === "fr"
+                      ? "Supprimer des définitions"
+                      : "Delete definitions"
+                  }
+                >
+                  <Trash2 size={16} />
+                </button>
+
+                <button
+                  type="button"
+                  className="saved-definitions__copy-btn"
+                  onClick={copyAllDefinitions}
+                  disabled={savedDefinitions.length === 0}
+                  aria-label={
+                    language === "fr"
+                      ? "Copier toutes les définitions"
+                      : "Copy all definitions"
+                  }
+                  title={
+                    language === "fr"
+                      ? "Copier toutes les définitions"
+                      : "Copy all definitions"
+                  }
+                >
+                  <Clipboard size={16} />
+                  {copySuccess && (
+                    <span className="copy-success-text">
+                      {language === "fr"
+                        ? "Copié !"
+                        : "Copied!"}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
 
             {copySuccess && (
@@ -486,8 +549,12 @@ ${whyItMatters}`;
                   <button
                     key={def.id}
                     type="button"
-                    className="saved-definition-chip"
-                    onClick={() => openSavedDefinition(def.term)}
+                    className={`saved-definition-chip ${
+                      deleteMode && selectedForDeletion.has(def.id)
+                        ? "saved-definition-chip--selected"
+                        : ""
+                    }`}
+                    onClick={() => handleChipClick(def)}
                   >
                     {def.term}
                   </button>

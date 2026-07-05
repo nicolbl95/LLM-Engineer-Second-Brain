@@ -65,6 +65,15 @@ export function addCustomDefinition(
 }
 
 /**
+ * Delete custom definitions by their IDs and persist.
+ */
+export function deleteCustomDefinitions(ids: string[]): void {
+  const existing = loadCustomDefinitions();
+  const filtered = existing.filter((def) => !ids.includes(def.id));
+  saveCustomDefinitions(filtered);
+}
+
+/**
  * Normalize a term for comparison (lowercase, trim).
  */
 function normalizeTerm(term: string): string {

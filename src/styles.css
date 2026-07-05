@@ -1834,6 +1834,67 @@ body {
   transform: translateY(0);
 }
 
+/* Delete button for saved definitions */
+.saved-definitions__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.saved-definitions__delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.saved-definitions__delete-btn:hover:not(:disabled) {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: var(--danger);
+  color: var(--danger);
+  transform: translateY(-1px);
+}
+
+.saved-definitions__delete-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.saved-definitions__delete-btn--active {
+  background: rgba(248, 113, 113, 0.2);
+  border-color: var(--danger);
+  color: var(--danger);
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.3);
+}
+
+.saved-definitions__delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Selected chip for deletion */
+.saved-definition-chip--selected {
+  background: rgba(248, 113, 113, 0.15);
+  border-color: var(--danger);
+  color: #fecaca;
+  box-shadow: 0 0 8px rgba(248, 113, 113, 0.25);
+}
+
+.saved-definition-chip--selected:hover {
+  background: rgba(248, 113, 113, 0.25);
+  border-color: #fca5a5;
+  color: #fef2f2;
+  box-shadow: 0 0 12px rgba(248, 113, 113, 0.4);
+}
+
 .copy-success-text {
   color: var(--success);
   font-weight: 600;
