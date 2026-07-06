@@ -55,6 +55,7 @@ interface BrainGraphProps {
   onNodeDelete?: (nodeId: string) => void;
   onHistoryStateChange?: (state: { nodes: any[]; edges: any[] }) => void;
   restoreHistoryState?: { nodes: any[]; edges: any[] } | null;
+  focusNodeId?: string | null;
 }
 
 type LocalizedText = {
@@ -455,7 +456,7 @@ function loadSavedCanvas(language: "fr" | "en") {
     }
 
     return {
-      nodes: parsed.nodes,
+      nodes: parsed.nodes.map((node) => normalizeLoadedFlowNode(node, language)),
       edges: parsed.edges,
     };
   } catch {
@@ -464,6 +465,111 @@ function loadSavedCanvas(language: "fr" | "en") {
       edges: createInitialFlowEdges(language),
     };
   }
+}
+
+/**
+ * Normalize a loaded React Flow node to ensure it has valid BrainNode data.
+ * This ensures nodes loaded from localStorage are searchable and functional.
+ */
+function normalizeLoadedFlowNode(flowNode: Node, language: "fr" | "en"): Node {
+  // If node already has valid data.node, preserve it and update language-dependent fields
+  if (flowNode.data?.node) {
+    const brainNode = flowNode.data.node as BrainNode;
+    return {
+      ...flowNode,
+      type: "brain",
+      data: {
+        ...flowNode.data,
+        node: brainNode,
+        label: pick(brainNode.title, language),
+        miniExplanation: brainNode.miniExplanation
+          ? pick(brainNode.miniExplanation, language)
+          : "",
+        nodeWidth: flowNode.data.nodeWidth ?? brainNode.nodeWidth ?? 180,
+        nodeHeight: flowNode.data.nodeHeight ?? brainNode.nodeHeight ?? 64,
+        miniExplanationWidth: flowNode.data.miniExplanationWidth ?? brainNode.miniExplanationWidth ?? 180,
+        miniExplanationHeight: flowNode.data.miniExplanationHeight ?? brainNode.miniExplanationHeight ?? 60,
+        summary: brainNode.summary ? pick(brainNode.summary, language) : "",
+        summaryWidth: flowNode.data.summaryWidth ?? brainNode.summaryWidth ?? 520,
+        summaryHeight: flowNode.data.summaryHeight ?? brainNode.summaryHeight ?? 120,
+        summaryOffsetX: flowNode.data.summaryOffsetX ?? brainNode.summaryOffsetX ?? 0,
+        highlighted: false,
+        dimmed: false,
+      },
+      selected: false,
+      draggable: true,
+      deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
+    };
+  }
+
+  // If data.node is missing, try to recover from static brainNodes
+  const staticNode = brainNodes.find((n) => n.id === flowNode.id);
+  if (staticNode) {
+    return {
+      ...flowNode,
+      type: "brain",
+      data: {
+        node: staticNode,
+        label: pick(staticNode.title, language),
+        miniExplanation: staticNode.miniExplanation
+          ? pick(staticNode.miniExplanation, language)
+          : "",
+        nodeWidth: flowNode.data?.nodeWidth ?? staticNode.nodeWidth ?? 180,
+        nodeHeight: flowNode.data?.nodeHeight ?? staticNode.nodeHeight ?? 64,
+        miniExplanationWidth: flowNode.data?.miniExplanationWidth ?? staticNode.miniExplanationWidth ?? 180,
+        miniExplanationHeight: flowNode.data?.miniExplanationHeight ?? staticNode.miniExplanationHeight ?? 60,
+        summary: staticNode.summary ? pick(staticNode.summary, language) : "",
+        summaryWidth: flowNode.data?.summaryWidth ?? staticNode.summaryWidth ?? 520,
+        summaryHeight: flowNode.data?.summaryHeight ?? staticNode.summaryHeight ?? 120,
+        summaryOffsetX: flowNode.data?.summaryOffsetX ?? staticNode.summaryOffsetX ?? 0,
+        highlighted: false,
+        dimmed: false,
+      },
+      selected: false,
+      draggable: true,
+      deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
+    };
+  }
+
+  // Fallback: create a minimal BrainNode from available data
+  const fallbackTitle = (flowNode.data?.label as string | undefined) || flowNode.id;
+  const fallbackNode: BrainNode = {
+    id: flowNode.id,
+    type: "concept",
+    position: flowNode.position || { x: 0, y: 0 },
+    title: { fr: fallbackTitle as string, en: fallbackTitle as string },
+    shortSummary: { fr: "", en: "" },
+    simpleExplanation: { fr: "", en: "" },
+    deepExplanation: { fr: "", en: "" },
+    whyItMatters: { fr: "", en: "" },
+    prerequisites: { fr: [], en: [] },
+    relatedConcepts: [],
+    commonMistakes: { fr: [], en: [] },
+    examples: { fr: [], en: [] },
+  };
+
+  return {
+    ...flowNode,
+    type: "brain",
+    data: {
+      node: fallbackNode,
+      label: fallbackTitle,
+      miniExplanation: "",
+      nodeWidth: flowNode.data?.nodeWidth ?? 180,
+      nodeHeight: flowNode.data?.nodeHeight ?? 64,
+      miniExplanationWidth: flowNode.data?.miniExplanationWidth ?? 180,
+      miniExplanationHeight: flowNode.data?.miniExplanationHeight ?? 60,
+      summary: "",
+      summaryWidth: flowNode.data?.summaryWidth ?? 520,
+      summaryHeight: flowNode.data?.summaryHeight ?? 120,
+      summaryOffsetX: flowNode.data?.summaryOffsetX ?? 0,
+      highlighted: false,
+      dimmed: false,
+    },
+    selected: false,
+    draggable: true,
+    deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
+  };
 }
 
 
@@ -493,9 +599,10 @@ export function BrainGraph({
   onNodeDelete,
   onHistoryStateChange,
   restoreHistoryState,
+  focusNodeId,
 }: BrainGraphProps) {
   const { language } = useLanguage();
-  const { fitView, zoomIn, zoomOut, screenToFlowPosition } = useReactFlow();
+  const { fitView, zoomIn, zoomOut, screenToFlowPosition, getNode } = useReactFlow();
 
   const initialCanvas = useMemo(
     () => loadSavedCanvas(language),
@@ -605,21 +712,17 @@ export function BrainGraph({
     );
   }, [nodes, edges]);
 
-  /** Notify parent of state changes for history tracking - with debounce */
-  const lastNotifiedStateRef = useRef<string>("");
+  /** Immediately notify parent of state changes for search and history tracking */
+  const onHistoryStateChangeRef = useRef(onHistoryStateChange);
   useEffect(() => {
-    if (!onHistoryStateChange) return;
-    
-    const stateString = JSON.stringify({ nodes, edges });
-    if (stateString !== lastNotifiedStateRef.current) {
-      lastNotifiedStateRef.current = stateString;
-      // Use setTimeout to avoid pushing state during React Flow's internal updates
-      const timeoutId = setTimeout(() => {
-        onHistoryStateChange({ nodes, edges });
-      }, 100);
-      return () => clearTimeout(timeoutId);
+    onHistoryStateChangeRef.current = onHistoryStateChange;
+  }, [onHistoryStateChange]);
+
+  useEffect(() => {
+    if (onHistoryStateChangeRef.current) {
+      onHistoryStateChangeRef.current({ nodes, edges });
     }
-  }, [nodes, edges, onHistoryStateChange]);
+  }, [nodes, edges]);
 
 
   /** Restore state from history */
@@ -958,6 +1061,29 @@ export function BrainGraph({
   const centerView = useCallback(() => {
     fitView({ padding: 0.25, duration: 500 });
   }, [fitView]);
+
+  /** Center the view on a specific node. */
+  const focusNode = useCallback((nodeId: string) => {
+    const node = getNode(nodeId);
+    if (node) {
+      // Use fitView with padding to show the node and its context
+      fitView({
+        padding: 0.3,
+        duration: 600,
+        nodes: [node],
+      });
+    }
+  }, [fitView, getNode]);
+
+  /** Effect to focus on a node when focusNodeId changes */
+  useEffect(() => {
+    if (focusNodeId) {
+      // Small delay to ensure the node is rendered and selected
+      setTimeout(() => {
+        focusNode(focusNodeId);
+      }, 100);
+    }
+  }, [focusNodeId, focusNode]);
 
   /** Export graph as tree and copy to clipboard */
   const handleExportTree = useCallback(async () => {

@@ -11,6 +11,11 @@ import { generateDefinition } from "./utils/definitions";
 import { useHistory } from "./hooks/useHistory";
 import "./styles.css";
 
+type CanvasState = {
+  nodes: any[];
+  edges: any[];
+};
+
 /** Main app layout — graph, drawer, definition panel. */
 function AppContent() {
   const { language, setLanguage } = useLanguage();
@@ -19,6 +24,7 @@ function AppContent() {
   const [selectedNode, setSelectedNode] = useState<BrainNode | null>(null);
   const [highlightedNodeIds, setHighlightedNodeIds] = useState<string[]>([]);
   const [activePillar] = useState<PillarId | "all">("all");
+
   const [definitionResult, setDefinitionResult] = useState<{
     term: string;
     simpleDefinition: string;
@@ -26,29 +32,59 @@ function AppContent() {
     whyItMatters: string;
     foundInGraph: boolean;
   } | null>(null);
+
   const [updatedNode, setUpdatedNode] = useState<BrainNode | null>(null);
   const [deletedNodeId, setDeletedNodeId] = useState<string | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [focusNodeId, setFocusNodeId] = useState<string | null>(null);
 
-  // History state for undo/redo
-  const [historyState, setHistoryState] = useState<{ nodes: any[]; edges: any[] }>({ nodes: [], edges: [] });
-  
+  /**
+   * History state is used when undo/redo restores a previous canvas.
+   * Active canvas state is used by live features like Ctrl+F search.
+   */
+  const [historyState, setHistoryState] = useState<CanvasState>({
+    nodes: [],
+    edges: [],
+  });
+
+  const [activeCanvasState, setActiveCanvasState] = useState<CanvasState>({
+    nodes: [],
+    edges: [],
+  });
+
   const { undo, redo, canUndo, canRedo, pushState } = useHistory({
     maxHistory: 50,
     onStateChange: (state) => {
       setHistoryState(state);
-      // Trigger a re-render of BrainGraph with the restored state
+      setActiveCanvasState(state);
+
+      // Trigger a re-render of BrainGraph with the restored state.
       setUpdatedNode(null);
       setDeletedNodeId("__restore__");
       setTimeout(() => setDeletedNodeId(null), 0);
     },
   });
 
-  const handleNodeUpdate = useCallback((updatedNode: BrainNode) => {
-    setSelectedNode(updatedNode);
-    setSelectedNodeId(updatedNode.id);
-    setHighlightedNodeIds([updatedNode.id]);
-    setUpdatedNode(updatedNode);
+  const handleCanvasStateChange = useCallback((state: { nodes: any[]; edges: any[] }) => {
+    setActiveCanvasState(state);
+    pushState(state);
+  }, [pushState]);
+
+  const getActiveNodeById = useCallback(
+    (nodeId: string): BrainNode | null => {
+      const activeNode = activeCanvasState.nodes.find((node) => node.id === nodeId);
+      const nodeData = activeNode?.data?.node;
+
+      return nodeData ?? getNodeById(nodeId) ?? null;
+    },
+    [activeCanvasState.nodes],
+  );
+
+  const handleNodeUpdate = useCallback((node: BrainNode) => {
+    setSelectedNode(node);
+    setSelectedNodeId(node.id);
+    setHighlightedNodeIds([node.id]);
+    setUpdatedNode(node);
   }, []);
 
   const handleNodeDelete = useCallback((nodeId: string) => {
@@ -56,26 +92,38 @@ function AppContent() {
     setSelectedNode(null);
     setHighlightedNodeIds([]);
     setDeletedNodeId(nodeId);
+
+    setActiveCanvasState((prev) => ({
+      nodes: prev.nodes.filter((node) => node.id !== nodeId),
+      edges: prev.edges.filter(
+        (edge) => edge.source !== nodeId && edge.target !== nodeId,
+      ),
+    }));
   }, []);
 
   /** Select a node, open drawer, optionally highlight related nodes. */
   const selectNode = useCallback(
     (nodeId: string, highlight = true, nodeData?: BrainNode | null) => {
       setSelectedNodeId(nodeId);
-      const node = nodeData ?? getNodeById(nodeId) ?? null;
+
+      const node = nodeData ?? getActiveNodeById(nodeId);
       setSelectedNode(node);
+
       if (node && highlight) {
         const related = node.relatedConcepts ?? [];
         setHighlightedNodeIds([nodeId, ...related]);
       }
     },
-    [],
+    [getActiveNodeById],
   );
 
-  const handleDefine = useCallback((term: string) => {
-    const result = generateDefinition(term, language);
-    setDefinitionResult(result);
-  }, [language]);
+  const handleDefine = useCallback(
+    (term: string) => {
+      const result = generateDefinition(term, language);
+      setDefinitionResult(result);
+    },
+    [language],
+  );
 
   const clearDefinitionHistory = useCallback(() => {
     setDefinitionResult(null);
@@ -89,7 +137,7 @@ function AppContent() {
     redo();
   }, [redo]);
 
-  // Global keyboard shortcut for search
+  // Global keyboard shortcut for search.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
@@ -100,7 +148,6 @@ function AppContent() {
         setIsSearchOpen((prev) => !prev);
       }
 
-      // Escape to close search
       if (e.key === "Escape" && isSearchOpen) {
         setIsSearchOpen(false);
       }
@@ -121,35 +168,64 @@ function AppContent() {
           aria-label={language === "fr" ? "Retour en arrière" : "Undo"}
           title={language === "fr" ? "Retour en arrière (Ctrl+Z)" : "Undo (Ctrl+Z)"}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M9 14L4 9L9 4"></path>
-            <path d="M4 9H16.5C18.99 9 21 11.01 21 13.5V13.5C21 15.99 18.99 18 16.5 18H15"></path>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 14L4 9L9 4" />
+            <path d="M4 9H16.5C18.99 9 21 11.01 21 13.5V13.5C21 15.99 18.99 18 16.5 18H15" />
           </svg>
         </button>
+
         <button
           type="button"
           className="history-button"
           onClick={handleRedo}
           disabled={!canRedo}
           aria-label={language === "fr" ? "Retour en avant" : "Redo"}
-          title={language === "fr" ? "Retour en avant (Ctrl+Shift+Z)" : "Redo (Ctrl+Shift+Z)"}
+          title={
+            language === "fr"
+              ? "Retour en avant (Ctrl+Shift+Z)"
+              : "Redo (Ctrl+Shift+Z)"
+          }
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M15 14L20 9L15 4"></path>
-            <path d="M20 9H7.5C5.01 9 3 11.01 3 13.5V13.5C3 15.99 5.01 18 7.5 18H9"></path>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M15 14L20 9L15 4" />
+            <path d="M20 9H7.5C5.01 9 3 11.01 3 13.5V13.5C3 15.99 5.01 18 7.5 18H9" />
           </svg>
         </button>
+
         <div className="lang-switcher">
           <button
             type="button"
-            className={`lang-switcher__btn ${language === "fr" ? "lang-switcher__btn--active" : ""}`}
+            className={`lang-switcher__btn ${
+              language === "fr" ? "lang-switcher__btn--active" : ""
+            }`}
             onClick={() => setLanguage("fr")}
           >
             FR
           </button>
+
           <button
             type="button"
-            className={`lang-switcher__btn ${language === "en" ? "lang-switcher__btn--active" : ""}`}
+            className={`lang-switcher__btn ${
+              language === "en" ? "lang-switcher__btn--active" : ""
+            }`}
             onClick={() => setLanguage("en")}
           >
             EN
@@ -165,7 +241,8 @@ function AppContent() {
             activePillar={activePillar}
             onNodeClick={(id, nodeData) => {
               setSelectedNodeId(id);
-              const node = nodeData ?? getNodeById(id) ?? null;
+
+              const node = nodeData ?? getActiveNodeById(id);
               setSelectedNode(node);
               setHighlightedNodeIds([id]);
             }}
@@ -178,20 +255,26 @@ function AppContent() {
             deletedNodeId={deletedNodeId}
             onNodeUpdate={handleNodeUpdate}
             onNodeDelete={handleNodeDelete}
-            onHistoryStateChange={(state) => pushState(state)}
+            onHistoryStateChange={handleCanvasStateChange}
             restoreHistoryState={historyState}
+            focusNodeId={focusNodeId}
           />
+
           {isSearchOpen && (
             <SearchPanel
               onClose={() => setIsSearchOpen(false)}
               onNodeSelect={(nodeId) => {
-                // Select only this node, don't highlight related nodes
+                const node = getActiveNodeById(nodeId);
+
                 setSelectedNodeId(nodeId);
-                const node = getNodeById(nodeId) ?? null;
                 setSelectedNode(node);
                 setHighlightedNodeIds([nodeId]);
                 setIsSearchOpen(false);
+
+                setFocusNodeId(nodeId);
+                setTimeout(() => setFocusNodeId(null), 700);
               }}
+              activeNodes={activeCanvasState.nodes}
             />
           )}
         </ReactFlowProvider>
