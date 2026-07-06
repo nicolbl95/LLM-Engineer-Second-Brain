@@ -1512,8 +1512,13 @@ export function BrainGraph({
         selectionOnDrag
         fitView
         fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.3}
-        maxZoom={1.8}
+        // Allow zooming out dramatically for an almost infinite workspace feel
+        minZoom={0.01}
+        maxZoom={2}
+        // Extend the panning workspace to a huge area (almost infinite)
+        translateExtent={[[-100000, -100000], [100000, 100000]]}
+        // Allow nodes to be placed very far apart
+        nodeExtent={[[-100000, -100000], [100000, 100000]]}
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} color="#1e293b" />
