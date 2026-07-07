@@ -368,6 +368,7 @@ function BrainNodeComponent({
 function ImageNodeComponent({ 
   data, 
   selected, 
+  id,
   onResizeStart 
 }: NodeProps & { 
   onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, width: number, height: number) => void;
@@ -461,28 +462,60 @@ function ImageNodeComponent({
       {showHandles && onResizeStart && (
         <>
           <div
-            className="resize-handle resize-handle--nw"
+            className="resize-handle resize-handle--nw nodrag nopan"
             style={{ ...resizeHandleStyle, top: "-6px", left: "-6px", cursor: "nwse-resize" }}
-            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "nw", imageWidth, imageHeight)}
-            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "nw", imageWidth, imageHeight)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "nw", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "nw", imageWidth, imageHeight);
+            }}
           />
           <div
-            className="resize-handle resize-handle--ne"
+            className="resize-handle resize-handle--ne nodrag nopan"
             style={{ ...resizeHandleStyle, top: "-6px", right: "-6px", cursor: "nesw-resize" }}
-            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "ne", imageWidth, imageHeight)}
-            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "ne", imageWidth, imageHeight)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "ne", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "ne", imageWidth, imageHeight);
+            }}
           />
           <div
-            className="resize-handle resize-handle--sw"
+            className="resize-handle resize-handle--sw nodrag nopan"
             style={{ ...resizeHandleStyle, bottom: "-6px", left: "-6px", cursor: "nesw-resize" }}
-            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "sw", imageWidth, imageHeight)}
-            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "sw", imageWidth, imageHeight)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "sw", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "sw", imageWidth, imageHeight);
+            }}
           />
           <div
-            className="resize-handle resize-handle--se"
+            className="resize-handle resize-handle--se nodrag nopan"
             style={{ ...resizeHandleStyle, bottom: "-6px", right: "-6px", cursor: "nwse-resize" }}
-            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "se", imageWidth, imageHeight)}
-            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "se", imageWidth, imageHeight)}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "se", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "se", imageWidth, imageHeight);
+            }}
           />
         </>
       )}
@@ -1456,6 +1489,8 @@ export function BrainGraph({
             imageNewHeight = Math.max(60, resizeState.startHeight - deltaY);
           }
 
+          console.log('IMAGE RESIZE MOVE', 'node:', resizeState.nodeId, 'handle:', resizeState.handle, 'newWidth:', imageNewWidth, 'newHeight:', imageNewHeight);
+
           return {
             ...node,
             data: {
@@ -1506,6 +1541,8 @@ export function BrainGraph({
   /** Handle resize end */
   const handleResizeEnd = useCallback(() => {
     if (!resizeState) return;
+
+    console.log('IMAGE RESIZE END', 'node:', resizeState.nodeId, 'handle:', resizeState.handle);
 
     // Find the updated node and call onNodeUpdate if available
     const updatedNode = nodes.find((n) => n.id === resizeState.nodeId);
