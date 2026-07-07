@@ -78,6 +78,9 @@ type FlowNodeData = {
   summaryWidth?: number;
   summaryHeight?: number;
   summaryOffsetX?: number;
+  // Image node properties
+  imageUrl?: string;
+  imageName?: string;
 };
 
 const STORAGE_KEY = "llm-engineer-second-brain-canvas";
@@ -321,6 +324,165 @@ function BrainNodeComponent({
             style={{ ...resizeHandleStyle, bottom: "-6px", right: "-6px", cursor: "nwse-resize" }}
             onMouseDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
             onPointerDown={(e) => onResizeStart(e, node.id, "se", nodeWidth, nodeHeight, miniWidth, miniHeight, summaryWidth, summaryHeight, summaryOffsetX)}
+          />
+        </>
+      )}
+
+      <Handle
+        id="bottom-target"
+        type="target"
+        position={Position.Bottom}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="bottom-source"
+        type="source"
+        position={Position.Bottom}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="left-target"
+        type="target"
+        position={Position.Left}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="left-source"
+        type="source"
+        position={Position.Left}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+    </div>
+  );
+}
+
+/** Custom React Flow node for images/screenshots */
+function ImageNodeComponent({ 
+  data, 
+  selected, 
+  onResizeStart 
+}: NodeProps & { 
+  onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, width: number, height: number) => void;
+}) {
+  const flowData = data as FlowNodeData & { 
+    imageUrl: string; 
+    imageName?: string;
+    imageWidth?: number;
+    imageHeight?: number;
+  };
+  const imageUrl = flowData.imageUrl;
+  const imageName = flowData.imageName;
+  const imageWidth = flowData.imageWidth ?? 300;
+  const imageHeight = flowData.imageHeight ?? 200;
+  const isEditing = Boolean(flowData.isEditing);
+  const showHandles = selected && isEditing;
+  const pointerEvents = showHandles ? "auto" : "none";
+  
+  const handleStyle: CSSProperties = {
+    opacity: showHandles ? 1 : 0,
+    pointerEvents,
+    background: "#ffffff",
+    border: "2px solid rgba(99, 102, 241, 0.8)",
+  };
+  
+  const handleClassName = showHandles ? "brain-handle brain-handle--visible" : "brain-handle";
+  
+  const resizeHandleStyle: CSSProperties = {
+    position: "absolute",
+    width: "12px",
+    height: "12px",
+    backgroundColor: "#ffffff",
+    border: "2px solid rgba(99, 102, 241, 0.8)",
+    borderRadius: "50%",
+    cursor: "nwse-resize",
+    zIndex: 10,
+    boxShadow: "0 0 8px rgba(99, 102, 241, 0.5)",
+  };
+
+  return (
+    <div
+      className={`image-node ${selected ? "image-node--selected" : ""}`}
+      style={{
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+      } as React.CSSProperties}
+    >
+      <Handle
+        id="top-target"
+        type="target"
+        position={Position.Top}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="top-source"
+        type="source"
+        position={Position.Top}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="right-target"
+        type="target"
+        position={Position.Right}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+      <Handle
+        id="right-source"
+        type="source"
+        position={Position.Right}
+        className={handleClassName}
+        style={handleStyle}
+        isConnectable={isEditing}
+      />
+
+      <div className="image-node__container">
+        <img 
+          src={imageUrl} 
+          alt={imageName || "Screenshot"}
+          className="image-node__img"
+          draggable={false}
+        />
+      </div>
+
+      {/* Resize handles - only visible when selected and in edit mode */}
+      {showHandles && onResizeStart && (
+        <>
+          <div
+            className="resize-handle resize-handle--nw"
+            style={{ ...resizeHandleStyle, top: "-6px", left: "-6px", cursor: "nwse-resize" }}
+            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "nw", imageWidth, imageHeight)}
+            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "nw", imageWidth, imageHeight)}
+          />
+          <div
+            className="resize-handle resize-handle--ne"
+            style={{ ...resizeHandleStyle, top: "-6px", right: "-6px", cursor: "nesw-resize" }}
+            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "ne", imageWidth, imageHeight)}
+            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "ne", imageWidth, imageHeight)}
+          />
+          <div
+            className="resize-handle resize-handle--sw"
+            style={{ ...resizeHandleStyle, bottom: "-6px", left: "-6px", cursor: "nesw-resize" }}
+            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "sw", imageWidth, imageHeight)}
+            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "sw", imageWidth, imageHeight)}
+          />
+          <div
+            className="resize-handle resize-handle--se"
+            style={{ ...resizeHandleStyle, bottom: "-6px", right: "-6px", cursor: "nwse-resize" }}
+            onMouseDown={(e) => onResizeStart(e, flowData.node?.id || "", "se", imageWidth, imageHeight)}
+            onPointerDown={(e) => onResizeStart(e, flowData.node?.id || "", "se", imageWidth, imageHeight)}
           />
         </>
       )}
@@ -620,6 +782,7 @@ export function BrainGraph({
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
   const [, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isEditing = true; // Always in edit mode
 
   /** Generate a unique node ID */
@@ -1186,6 +1349,34 @@ export function BrainGraph({
     });
   }, []);
 
+  /** Handle image resize start from a corner handle */
+  const handleImageResizeStart = useCallback((
+    e: React.PointerEvent | React.MouseEvent,
+    nodeId: string,
+    handle: string,
+    imageWidth: number,
+    imageHeight: number
+  ) => {
+    console.log('IMAGE RESIZE START', nodeId, handle, imageWidth, imageHeight);
+    e.stopPropagation();
+    e.preventDefault();
+
+    setResizeState({
+      nodeId,
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: imageWidth,
+      startHeight: imageHeight,
+      startMiniWidth: 0,
+      startMiniHeight: 0,
+      startSummaryWidth: 0,
+      startSummaryHeight: 0,
+      startSummaryOffsetX: 0,
+      isResizing: true,
+    });
+  }, []);
+
   /** Handle resize move - unified handler for both node and summary */
   const handleResizeMove = useCallback((e: PointerEvent | MouseEvent) => {
     if (!resizeState || !resizeState.isResizing) return;
@@ -1234,6 +1425,48 @@ export function BrainGraph({
         }
 
         // Main node resize mode - only update main node dimensions
+        if (resizeState.handle.includes('e')) {
+          newWidth = Math.max(100, resizeState.startWidth + deltaX);
+        }
+        if (resizeState.handle.includes('w')) {
+          newWidth = Math.max(100, resizeState.startWidth - deltaX);
+        }
+        if (resizeState.handle.includes('s')) {
+          newHeight = Math.max(40, resizeState.startHeight + deltaY);
+        }
+        if (resizeState.handle.includes('n')) {
+          newHeight = Math.max(40, resizeState.startHeight - deltaY);
+        }
+
+        // Image node resize mode - must be checked first and return early
+        if (data.imageUrl) {
+          let imageNewWidth = resizeState.startWidth;
+          let imageNewHeight = resizeState.startHeight;
+
+          if (resizeState.handle.includes('e')) {
+            imageNewWidth = Math.max(80, resizeState.startWidth + deltaX);
+          }
+          if (resizeState.handle.includes('w')) {
+            imageNewWidth = Math.max(80, resizeState.startWidth - deltaX);
+          }
+          if (resizeState.handle.includes('s')) {
+            imageNewHeight = Math.max(60, resizeState.startHeight + deltaY);
+          }
+          if (resizeState.handle.includes('n')) {
+            imageNewHeight = Math.max(60, resizeState.startHeight - deltaY);
+          }
+
+          return {
+            ...node,
+            data: {
+              ...data,
+              imageWidth: imageNewWidth,
+              imageHeight: imageNewHeight,
+            },
+          };
+        }
+
+        // Main node resize mode - only for non-image nodes
         if (resizeState.handle.includes('e')) {
           newWidth = Math.max(100, resizeState.startWidth + deltaX);
         }
@@ -1387,6 +1620,162 @@ export function BrainGraph({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isConnecting, cancelConnection]);
 
+  /** Handle paste event for images */
+  const handlePaste = useCallback(async (e: ClipboardEvent) => {
+    // Don't handle paste if user is typing in an input/textarea
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT')) {
+      return;
+    }
+
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        
+        const file = item.getAsFile();
+        if (!file) continue;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const imageUrl = event.target?.result as string;
+          if (!imageUrl) return;
+
+          const imageNodeId = `image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          
+          // Get the React Flow container element
+          const container = document.querySelector('.react-flow') as HTMLElement;
+          if (!container) {
+            // Fallback to default position
+            const newNode: Node = {
+              id: imageNodeId,
+              type: "image",
+              position: { x: 400, y: 320 },
+              data: {
+                imageUrl,
+                imageName: file.name,
+                imageWidth: 300,
+                imageHeight: 200,
+                isEditing: true,
+              },
+              selected: true,
+              draggable: true,
+              deletable: true,
+            };
+            setNodes((currentNodes) => [...currentNodes, newNode]);
+            return;
+          }
+
+          // Calculate the center of the viewport
+          const rect = container.getBoundingClientRect();
+          const screenCenterX = rect.left + rect.width / 2;
+          const screenCenterY = rect.top + rect.height / 2;
+          const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
+
+          const newNode: Node = {
+            id: imageNodeId,
+            type: "image",
+            position: { x: flowPosition.x - 150, y: flowPosition.y - 100 },
+            data: {
+              imageUrl,
+              imageName: file.name,
+              imageWidth: 300,
+              imageHeight: 200,
+              isEditing: true,
+            },
+            selected: true,
+            draggable: true,
+            deletable: true,
+          };
+
+          setNodes((currentNodes) => [...currentNodes, newNode]);
+        };
+        reader.readAsDataURL(file);
+        break;
+      }
+    }
+  }, [setNodes, screenToFlowPosition]);
+
+  /** Add paste event listener */
+  useEffect(() => {
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, [handlePaste]);
+
+  /** Handle file upload button click */
+  const handleUploadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  /** Handle file selection from upload input */
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageUrl = event.target?.result as string;
+      if (!imageUrl) return;
+
+      const imageNodeId = `image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Get the React Flow container element
+      const container = document.querySelector('.react-flow') as HTMLElement;
+      if (!container) {
+        // Fallback to default position
+        const newNode: Node = {
+          id: imageNodeId,
+          type: "image",
+          position: { x: 400, y: 320 },
+          data: {
+            imageUrl,
+            imageName: file.name,
+            imageWidth: 300,
+            imageHeight: 200,
+            isEditing: true,
+          },
+          selected: true,
+          draggable: true,
+          deletable: true,
+        };
+        setNodes((currentNodes) => [...currentNodes, newNode]);
+        return;
+      }
+
+      // Calculate the center of the viewport
+      const rect = container.getBoundingClientRect();
+      const screenCenterX = rect.left + rect.width / 2;
+      const screenCenterY = rect.top + rect.height / 2;
+      const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
+
+      const newNode: Node = {
+        id: imageNodeId,
+        type: "image",
+        position: { x: flowPosition.x - 150, y: flowPosition.y - 100 },
+        data: {
+          imageUrl,
+          imageName: file.name,
+          imageWidth: 300,
+          imageHeight: 200,
+          isEditing: true,
+        },
+        selected: true,
+        draggable: true,
+        deletable: true,
+      };
+
+      setNodes((currentNodes) => [...currentNodes, newNode]);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset the input so the same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [setNodes, screenToFlowPosition]);
+
   const nodeTypes = useMemo(() => ({
     brain: memo((props: NodeProps) => <BrainNodeComponent 
       {...props} 
@@ -1394,7 +1783,11 @@ export function BrainGraph({
       onSummaryDragStart={handleSummaryDragStart}
       onSummaryResizeStart={handleSummaryResizeStart}
     />),
-  }), [handleResizeStart, handleSummaryDragStart, handleSummaryResizeStart]);
+    image: memo((props: NodeProps) => <ImageNodeComponent 
+      {...props} 
+      onResizeStart={handleImageResizeStart}
+    />),
+  }), [handleResizeStart, handleSummaryDragStart, handleSummaryResizeStart, handleImageResizeStart]);
 
   const selectedBrainEdge = useMemo<BrainEdge | null>(() => {
     if (!selectedEdge) return null;
@@ -1416,19 +1809,41 @@ export function BrainGraph({
     <div className={`brain-graph ${isConnecting ? "is-connecting" : ""}`}>
       <div className="brain-graph__zoom-panel">
         {isEditing && (
-          <button
-            type="button"
-            onClick={handleAddNode}
-            className="zoom-button"
-            aria-label={language === "fr" ? "Ajouter un nœud" : "Add a node"}
-            title={language === "fr" ? "Ajouter un nœud" : "Add a node"}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-              <line x1="12" y1="8" x2="12" y2="16"></line>
-              <line x1="8" y1="12" x2="16" y2="12"></line>
-            </svg>
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={handleAddNode}
+              className="zoom-button"
+              aria-label={language === "fr" ? "Ajouter un nœud" : "Add a node"}
+              title={language === "fr" ? "Ajouter un nœud" : "Add a node"}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="12" y1="8" x2="12" y2="16"></line>
+                <line x1="8" y1="12" x2="16" y2="12"></line>
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={handleUploadClick}
+              className="zoom-button"
+              aria-label={language === "fr" ? "Ajouter une image" : "Add an image"}
+              title={language === "fr" ? "Ajouter une image/screenshot" : "Add image/screenshot"}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+          </>
         )}
         <button
           type="button"
