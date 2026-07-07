@@ -25,7 +25,7 @@ import { useLanguage } from "../context/LanguageContext";
 import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
 import { pick } from "../utils/i18n";
 import { EdgeEditor } from "./EdgeEditor";
-import { generateTreeExport, copyToClipboard } from "../utils/treeExport";
+import { generateTreeExport, generateTreeTitleOnlyExport, copyToClipboard } from "../utils/treeExport";
 
 interface ResizeState {
   nodeId: string;
@@ -1117,6 +1117,38 @@ export function BrainGraph({
     }
   }, [nodes, edges, language]);
 
+  /** Export graph as tree with titles only and copy to clipboard */
+  const handleExportTitleOnlyTree = useCallback(async () => {
+    // Extract BrainNodes from React Flow nodes
+    const brainNodes = nodes
+      .map((node) => (node.data as FlowNodeData)?.node)
+      .filter((node): node is BrainNode => node !== undefined);
+    
+    // Extract BrainEdges from React Flow edges
+    const brainEdges: BrainEdge[] = edges
+      .filter((edge) => edge.data?.label)
+      .map((edge) => ({
+        id: edge.id,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle ?? undefined,
+        targetHandle: edge.targetHandle ?? undefined,
+        relationshipType: (edge.data?.relationshipType as BrainEdge['relationshipType']) ?? "related",
+        label: edge.data?.label as { fr: string; en: string },
+        color: edge.data?.color as string | undefined,
+        labelColor: edge.data?.labelColor as string | undefined,
+        lineStyle: edge.data?.lineStyle as "solid" | "dashed" | undefined,
+      }));
+    
+    const treeText = generateTreeTitleOnlyExport(brainNodes, brainEdges, language);
+    const success = await copyToClipboard(treeText);
+    
+    if (success) {
+      setCopyFeedback(true);
+      setTimeout(() => setCopyFeedback(false), 2000);
+    }
+  }, [nodes, edges, language]);
+
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId],
@@ -1422,6 +1454,22 @@ export function BrainGraph({
           {language === "fr" ? "Centrer" : "Fit"}
         </button>
       </div>
+
+      {/* Export button with titles only - bottom right, opposite minimap */}
+      <button
+        type="button"
+        onClick={handleExportTitleOnlyTree}
+        className="export-button export-button--summary"
+        aria-label={language === "fr" ? "Exporter les titres" : "Export titles"}
+        title={language === "fr" ? "Copier l'arborescence avec les titres uniquement" : "Copy tree structure with titles only"}
+      >
+        <span className="export-button__letter">T</span>
+        {copyFeedback && (
+          <span className="export-button__feedback">
+            {language === "fr" ? "Copié !" : "Copied!"}
+          </span>
+        )}
+      </button>
 
       {/* Export button - bottom right, opposite minimap */}
       <button

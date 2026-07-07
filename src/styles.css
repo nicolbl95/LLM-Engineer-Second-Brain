@@ -2149,6 +2149,11 @@ body {
   backdrop-filter: blur(10px);
 }
 
+/* Summary export button - positioned above the regular export button */
+.export-button--summary {
+  bottom: 68px;
+}
+
 .export-button:hover {
   background: rgba(30, 41, 55, 0.95);
   border-color: rgba(129, 140, 248, 0.4);
@@ -2192,4 +2197,17 @@ body {
     opacity: 0;
     transform: translateY(-4px);
   }
+}
+
+/* Export button with letter icon (for summary export) */
+.export-button__letter {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  flex-shrink: 0;
 }
