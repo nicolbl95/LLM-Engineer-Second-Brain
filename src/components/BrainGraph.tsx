@@ -1275,8 +1275,6 @@ export function BrainGraph({
   const handleResizeEnd = useCallback(() => {
     if (!resizeState) return;
 
-    console.log('IMAGE RESIZE END', 'node:', resizeState.nodeId, 'handle:', resizeState.handle);
-
     // Find the updated node and call onNodeUpdate if available
     const updatedNode = nodes.find((n) => n.id === resizeState.nodeId);
     if (updatedNode && onNodeUpdate) {
@@ -1390,162 +1388,6 @@ export function BrainGraph({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isConnecting, cancelConnection]);
 
-  /** Handle paste event for images */
-  const handlePaste = useCallback(async (e: ClipboardEvent) => {
-    // Don't handle paste if user is typing in an input/textarea
-    const activeElement = document.activeElement;
-    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.tagName === 'SELECT')) {
-      return;
-    }
-
-    const items = e.clipboardData?.items;
-    if (!items) return;
-
-    for (const item of items) {
-      if (item.type.startsWith('image/')) {
-        e.preventDefault();
-        
-        const file = item.getAsFile();
-        if (!file) continue;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const imageUrl = event.target?.result as string;
-          if (!imageUrl) return;
-
-          const imageNodeId = `image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-          
-          // Get the React Flow container element
-          const container = document.querySelector('.react-flow') as HTMLElement;
-          if (!container) {
-            // Fallback to default position
-            const newNode: Node = {
-              id: imageNodeId,
-              type: "image",
-              position: { x: 400, y: 320 },
-              data: {
-                imageUrl,
-                imageName: file.name,
-                imageWidth: 300,
-                imageHeight: 200,
-                isEditing: true,
-              },
-              selected: true,
-              draggable: true,
-              deletable: true,
-            };
-            setNodes((currentNodes) => [...currentNodes, newNode]);
-            return;
-          }
-
-          // Calculate the center of the viewport
-          const rect = container.getBoundingClientRect();
-          const screenCenterX = rect.left + rect.width / 2;
-          const screenCenterY = rect.top + rect.height / 2;
-          const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
-
-          const newNode: Node = {
-            id: imageNodeId,
-            type: "image",
-            position: { x: flowPosition.x - 150, y: flowPosition.y - 100 },
-            data: {
-              imageUrl,
-              imageName: file.name,
-              imageWidth: 300,
-              imageHeight: 200,
-              isEditing: true,
-            },
-            selected: true,
-            draggable: true,
-            deletable: true,
-          };
-
-          setNodes((currentNodes) => [...currentNodes, newNode]);
-        };
-        reader.readAsDataURL(file);
-        break;
-      }
-    }
-  }, [setNodes, screenToFlowPosition]);
-
-  /** Add paste event listener */
-  useEffect(() => {
-    window.addEventListener('paste', handlePaste);
-    return () => window.removeEventListener('paste', handlePaste);
-  }, [handlePaste]);
-
-  /** Handle file upload button click */
-  const handleUploadClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  /** Handle file selection from upload input */
-  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !file.type.startsWith('image/')) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const imageUrl = event.target?.result as string;
-      if (!imageUrl) return;
-
-      const imageNodeId = `image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Get the React Flow container element
-      const container = document.querySelector('.react-flow') as HTMLElement;
-      if (!container) {
-        // Fallback to default position
-        const newNode: Node = {
-          id: imageNodeId,
-          type: "image",
-          position: { x: 400, y: 320 },
-          data: {
-            imageUrl,
-            imageName: file.name,
-            imageWidth: 300,
-            imageHeight: 200,
-            isEditing: true,
-          },
-          selected: true,
-          draggable: true,
-          deletable: true,
-        };
-        setNodes((currentNodes) => [...currentNodes, newNode]);
-        return;
-      }
-
-      // Calculate the center of the viewport
-      const rect = container.getBoundingClientRect();
-      const screenCenterX = rect.left + rect.width / 2;
-      const screenCenterY = rect.top + rect.height / 2;
-      const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
-
-      const newNode: Node = {
-        id: imageNodeId,
-        type: "image",
-        position: { x: flowPosition.x - 150, y: flowPosition.y - 100 },
-        data: {
-          imageUrl,
-          imageName: file.name,
-          imageWidth: 300,
-          imageHeight: 200,
-          isEditing: true,
-        },
-        selected: true,
-        draggable: true,
-        deletable: true,
-      };
-
-      setNodes((currentNodes) => [...currentNodes, newNode]);
-    };
-    reader.readAsDataURL(file);
-
-    // Reset the input so the same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [setNodes, screenToFlowPosition]);
-
   const nodeTypes = useMemo(() => ({
     brain: memo((props: NodeProps) => <BrainNodeComponent 
       {...props} 
@@ -1589,26 +1431,6 @@ export function BrainGraph({
                 <line x1="8" y1="12" x2="16" y2="12"></line>
               </svg>
             </button>
-            <button
-              type="button"
-              onClick={handleUploadClick}
-              className="zoom-button"
-              aria-label={language === "fr" ? "Ajouter une image" : "Add an image"}
-              title={language === "fr" ? "Ajouter une image/screenshot" : "Add image/screenshot"}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-              </svg>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              style={{ display: 'none' }}
-            />
           </>
         )}
         <button
