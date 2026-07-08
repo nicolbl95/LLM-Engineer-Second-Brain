@@ -40,6 +40,7 @@ interface ResizeState {
   startSummaryHeight: number;
   startSummaryOffsetX: number;
   isResizing: boolean;
+  mode: "node" | "summary" | "summary-drag" | "image";
 }
 
 
@@ -363,6 +364,181 @@ function BrainNodeComponent({
 
 // nodeTypes will be defined inside the component to access handleResizeStart
 
+/** Image node component for pasted screenshots/images */
+function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & { onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, width: number, height: number) => void }) {
+  const imageData = data as {
+    imageUrl: string;
+    imageName?: string;
+    imageWidth: number;
+    imageHeight: number;
+    isEditing: boolean;
+  };
+
+  const { imageUrl, imageName, imageWidth, imageHeight } = imageData;
+
+  return (
+    <div
+      className={`image-node ${selected ? "image-node--selected" : ""}`}
+      style={{
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+      }}
+    >
+      <Handle
+        id="top-target"
+        type="target"
+        position={Position.Top}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="top-source"
+        type="source"
+        position={Position.Top}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="right-target"
+        type="target"
+        position={Position.Right}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="right-source"
+        type="source"
+        position={Position.Right}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="bottom-target"
+        type="target"
+        position={Position.Bottom}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="bottom-source"
+        type="source"
+        position={Position.Bottom}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="left-target"
+        type="target"
+        position={Position.Left}
+        className="image-handle"
+        isConnectable={true}
+      />
+      <Handle
+        id="left-source"
+        type="source"
+        position={Position.Left}
+        className="image-handle"
+        isConnectable={true}
+      />
+      
+      {/* Resize handles - only visible when selected */}
+      {selected && onResizeStart && (
+        <>
+          <div
+            className="resize-handle resize-handle--nw nodrag nopan"
+            style={{ 
+              position: "absolute",
+              top: "-6px", 
+              left: "-6px", 
+              cursor: "nwse-resize",
+              zIndex: 20 
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "nw", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "nw", imageWidth, imageHeight);
+            }}
+          />
+          <div
+            className="resize-handle resize-handle--ne nodrag nopan"
+            style={{ 
+              position: "absolute",
+              top: "-6px", 
+              right: "-6px", 
+              cursor: "nesw-resize",
+              zIndex: 20 
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "ne", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "ne", imageWidth, imageHeight);
+            }}
+          />
+          <div
+            className="resize-handle resize-handle--sw nodrag nopan"
+            style={{ 
+              position: "absolute",
+              bottom: "-6px", 
+              left: "-6px", 
+              cursor: "nesw-resize",
+              zIndex: 20 
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "sw", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "sw", imageWidth, imageHeight);
+            }}
+          />
+          <div
+            className="resize-handle resize-handle--se nodrag nopan"
+            style={{ 
+              position: "absolute",
+              bottom: "-6px", 
+              right: "-6px", 
+              cursor: "nwse-resize",
+              zIndex: 20 
+            }}
+            onMouseDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "se", imageWidth, imageHeight);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              onResizeStart(e, id, "se", imageWidth, imageHeight);
+            }}
+          />
+        </>
+      )}
+      
+      <div className="image-node__container">
+        <img
+          src={imageUrl}
+          alt={imageName || "Pasted image"}
+          className="image-node__img"
+          draggable={false}
+        />
+      </div>
+    </div>
+  );
+}
+
 /** Convert static brain data into editable React Flow nodes. */
 function createInitialFlowNodes(language: "fr" | "en"): Node[] {
   return brainNodes.map((n) => ({
@@ -468,10 +644,21 @@ function loadSavedCanvas(language: "fr" | "en") {
 }
 
 /**
- * Normalize a loaded React Flow node to ensure it has valid BrainNode data.
- * This ensures nodes loaded from localStorage are searchable and functional.
+ * Normalize a loaded React Flow node to ensure it has valid data.
+ * This ensures nodes loaded from localStorage are functional.
  */
 function normalizeLoadedFlowNode(flowNode: Node, language: "fr" | "en"): Node {
+  // Preserve image nodes as-is
+  if (flowNode.type === "image") {
+    return {
+      ...flowNode,
+      type: "image",
+      selected: false,
+      draggable: true,
+      deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
+    };
+  }
+
   // If node already has valid data.node, preserve it and update language-dependent fields
   if (flowNode.data?.node) {
     const brainNode = flowNode.data.node as BrainNode;
@@ -586,6 +773,7 @@ function normalizeLoadedFlowNode(flowNode: Node, language: "fr" | "en"): Node {
  * - delete selected nodes/edges
  * - reset layout
  * - real React Flow minimap
+ * - paste images from clipboard
  */
 export function BrainGraph({
   selectedNodeId,
@@ -641,6 +829,16 @@ export function BrainGraph({
   useEffect(() => {
     setNodes((currentNodes) =>
       currentNodes.map((flowNode) => {
+        // Skip image nodes - they don't have BrainNode data
+        if (flowNode.type === "image") {
+          return {
+            ...flowNode,
+            selected: flowNode.id === selectedNodeId,
+            deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
+            draggable: isEditing && !PROTECTED_NODE_IDS.has(flowNode.id),
+          };
+        }
+
         const data = flowNode.data as FlowNodeData;
 
         const brainNode = data.node;
@@ -739,6 +937,9 @@ export function BrainGraph({
     setNodes((currentNodes) =>
       currentNodes.map((flowNode) => {
         if (flowNode.id !== updatedNode.id) return flowNode;
+        
+        // Skip image nodes
+        if (flowNode.type === "image") return flowNode;
 
         return {
           ...flowNode,
@@ -1183,6 +1384,35 @@ export function BrainGraph({
       startSummaryHeight: summaryHeight,
       startSummaryOffsetX: summaryOffsetX,
       isResizing: true,
+      mode: "node",
+    });
+  }, []);
+
+  /** Handle image resize start from a corner handle */
+  const handleImageResizeStart = useCallback((
+    e: React.PointerEvent | React.MouseEvent,
+    nodeId: string,
+    handle: string,
+    width: number,
+    height: number
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    setResizeState({
+      nodeId,
+      handle,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: width,
+      startHeight: height,
+      startMiniWidth: 0,
+      startMiniHeight: 0,
+      startSummaryWidth: 0,
+      startSummaryHeight: 0,
+      startSummaryOffsetX: 0,
+      isResizing: true,
+      mode: "image",
     });
   }, []);
 
@@ -1198,6 +1428,35 @@ export function BrainGraph({
       currentNodes.map((node) => {
         if (node.id !== resizeState.nodeId) return node;
 
+        // Image resize mode
+        if (resizeState.mode === "image") {
+          let newWidth = resizeState.startWidth;
+          let newHeight = resizeState.startHeight;
+
+          if (resizeState.handle.includes('e')) {
+            newWidth = Math.max(80, resizeState.startWidth + deltaX);
+          }
+          if (resizeState.handle.includes('w')) {
+            newWidth = Math.max(80, resizeState.startWidth - deltaX);
+          }
+          if (resizeState.handle.includes('s')) {
+            newHeight = Math.max(60, resizeState.startHeight + deltaY);
+          }
+          if (resizeState.handle.includes('n')) {
+            newHeight = Math.max(60, resizeState.startHeight - deltaY);
+          }
+
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              imageWidth: newWidth,
+              imageHeight: newHeight,
+            },
+          };
+        }
+
+        // Normal node/summary resize mode
         const data = node.data as FlowNodeData;
         let newWidth = resizeState.startWidth;
         let newHeight = resizeState.startHeight;
@@ -1313,7 +1572,7 @@ export function BrainGraph({
     e: React.PointerEvent | React.MouseEvent,
     nodeId: string,
     startX: number,
-    startSummaryOffsetX: number
+    summaryOffsetX: number
   ) => {
     e.stopPropagation();
     e.preventDefault();
@@ -1329,8 +1588,9 @@ export function BrainGraph({
       startMiniHeight: 0,
       startSummaryWidth: 0,
       startSummaryHeight: 0,
-      startSummaryOffsetX,
+      startSummaryOffsetX: summaryOffsetX,
       isResizing: true,
+      mode: "summary-drag",
     });
   }, []);
 
@@ -1359,6 +1619,7 @@ export function BrainGraph({
       startSummaryHeight: summaryHeight,
       startSummaryOffsetX: summaryOffsetX,
       isResizing: true,
+      mode: "summary",
     });
   }, []);
 
@@ -1388,6 +1649,97 @@ export function BrainGraph({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isConnecting, cancelConnection]);
 
+  /** Handle paste event to add image nodes */
+  useEffect(() => {
+    const handlePaste = async (e: ClipboardEvent) => {
+      // Check if the paste is happening in an input/textarea/contenteditable
+      const target = e.target as HTMLElement;
+      const tagName = target.tagName.toLowerCase();
+      const isEditable = target.isContentEditable || 
+                         tagName === 'input' || 
+                         tagName === 'textarea' ||
+                         tagName === 'select' ||
+                         target.closest('input') ||
+                         target.closest('textarea') ||
+                         target.closest('select') ||
+                         target.closest('[contenteditable="true"]');
+
+      if (isEditable) {
+        return; // Let the default paste behavior happen in editable elements
+      }
+
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      // Find image in clipboard
+      const imageItem = Array.from(items).find(item => 
+        item.type.startsWith('image/') && item.kind === 'file'
+      );
+      
+      if (!imageItem) return;
+
+      // Prevent default paste behavior
+      e.preventDefault();
+
+      // Read the image file
+      const file = imageItem.getAsFile();
+      if (!file) return;
+
+      const reader = new FileReader();
+      
+      reader.onload = (event) => {
+        const imageUrl = event.target?.result as string;
+        
+        // Get the center of the current viewport
+        const container = document.querySelector('.react-flow') as HTMLElement;
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const screenCenterX = rect.left + rect.width / 2;
+        const screenCenterY = rect.top + rect.height / 2;
+
+        // Convert screen coordinates to flow coordinates
+        const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
+
+        // Create image node
+        const newNodeId = `image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const defaultWidth = 320;
+        const defaultHeight = 220;
+
+        const newNode: Node = {
+          id: newNodeId,
+          type: "image",
+          position: { 
+            x: flowPosition.x - defaultWidth / 2, 
+            y: flowPosition.y - defaultHeight / 2 
+          },
+          data: {
+            imageUrl,
+            imageName: file.name || `Image ${new Date().toLocaleTimeString()}`,
+            imageWidth: defaultWidth,
+            imageHeight: defaultHeight,
+            isEditing: true,
+          },
+          selected: true,
+          draggable: true,
+          deletable: true,
+        };
+
+        setNodes((currentNodes) => [...currentNodes, newNode]);
+      };
+
+      reader.readAsDataURL(file);
+    };
+
+    window.addEventListener('paste', handlePaste);
+    document.addEventListener('paste', handlePaste);
+    
+    return () => {
+      window.removeEventListener('paste', handlePaste);
+      document.removeEventListener('paste', handlePaste);
+    };
+  }, [setNodes, screenToFlowPosition]);
+
   const nodeTypes = useMemo(() => ({
     brain: memo((props: NodeProps) => <BrainNodeComponent 
       {...props} 
@@ -1395,7 +1747,11 @@ export function BrainGraph({
       onSummaryDragStart={handleSummaryDragStart}
       onSummaryResizeStart={handleSummaryResizeStart}
     />),
-  }), [handleResizeStart, handleSummaryDragStart, handleSummaryResizeStart]);
+    image: memo((props: NodeProps) => <ImageNodeComponent 
+      {...props} 
+      onResizeStart={handleImageResizeStart}
+    />),
+  }), [handleResizeStart, handleSummaryDragStart, handleSummaryResizeStart, handleImageResizeStart]);
 
   const selectedBrainEdge = useMemo<BrainEdge | null>(() => {
     if (!selectedEdge) return null;
@@ -1538,7 +1894,10 @@ export function BrainGraph({
           setSelectedEdgeId(null);
 
           const flowNode = nodes.find((candidate) => candidate.id === node.id);
-          const selectedNode = (flowNode?.data as FlowNodeData | undefined)?.node ?? null;
+          // For image nodes, pass null as BrainNode since they don't have one
+          const selectedNode = flowNode?.type === "image" 
+            ? null 
+            : (flowNode?.data as FlowNodeData | undefined)?.node ?? null;
           onNodeClick(node.id, selectedNode);
         }}
         onEdgeClick={(_, edge) => {
@@ -1591,6 +1950,10 @@ export function BrainGraph({
             boxShadow: "0 18px 45px rgba(0,0,0,0.35)",
           }}
           nodeColor={(n) => {
+            // Image nodes get a special color in minimap
+            if (n.type === "image") {
+              return "#6366f1";
+            }
             const bn = (n.data as FlowNodeData)?.node;
             return bn ? getNodeColor(bn) : "#475569";
           }}
