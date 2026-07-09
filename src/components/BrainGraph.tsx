@@ -364,26 +364,116 @@ function BrainNodeComponent({
 
 // nodeTypes will be defined inside the component to access handleResizeStart
 
-/** Image node component for pasted screenshots/images */
-function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & { onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, width: number, height: number) => void }) {
-  const imageData = data as {
-    imageUrl: string;
-    imageName?: string;
-    imageWidth: number;
-    imageHeight: number;
-    isEditing: boolean;
-  };
+  /** Image node component for pasted screenshots/images */
+  function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & { onResizeStart?: (e: React.PointerEvent | React.MouseEvent, nodeId: string, handle: string, width: number, height: number) => void }) {
+    const imageData = data as {
+      imageUrl?: string;
+      imageName?: string;
+      imageWidth?: number;
+      imageHeight?: number;
+      isEditing?: boolean;
+    };
 
-  const { imageUrl, imageName, imageWidth, imageHeight } = imageData;
+    const { imageUrl, imageName, imageWidth, imageHeight } = imageData;
+    
+    // Safe numeric defaults with fallbacks
+    const safeImageWidth = Number(imageWidth) || 320;
+    const safeImageHeight = Number(imageHeight) || 220;
 
-  return (
-    <div
-      className={`image-node ${selected ? "image-node--selected" : ""}`}
-      style={{
-        width: `${imageWidth}px`,
-        height: `${imageHeight}px`,
-      }}
-    >
+    // If imageUrl is missing or invalid, render a placeholder
+    if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('data:image/')) {
+      console.warn(`ImageNodeComponent: Invalid or missing imageUrl for node ${id}`);
+      return (
+        <div
+          className={`image-node ${selected ? "image-node--selected" : ""}`}
+          style={{
+            width: `${safeImageWidth}px`,
+            height: `${safeImageHeight}px`,
+          }}
+        >
+          <Handle
+            id="top-target"
+            type="target"
+            position={Position.Top}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="top-source"
+            type="source"
+            position={Position.Top}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="right-target"
+            type="target"
+            position={Position.Right}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="right-source"
+            type="source"
+            position={Position.Right}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="bottom-target"
+            type="target"
+            position={Position.Bottom}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="bottom-source"
+            type="source"
+            position={Position.Bottom}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="left-target"
+            type="target"
+            position={Position.Left}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <Handle
+            id="left-source"
+            type="source"
+            position={Position.Left}
+            className="image-handle"
+            isConnectable={true}
+          />
+          <div className="image-node__container" style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            backgroundColor: '#1e293b',
+            border: '2px dashed #64748b',
+            borderRadius: '8px',
+            height: '100%',
+            color: '#94a3b8',
+            fontSize: '14px',
+            textAlign: 'center',
+            padding: '20px'
+          }}>
+            Image unavailable
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div
+        className={`image-node ${selected ? "image-node--selected" : ""}`}
+        style={{
+          width: `${safeImageWidth}px`,
+          height: `${safeImageHeight}px`,
+        }}
+      >
       <Handle
         id="top-target"
         type="target"
@@ -456,12 +546,12 @@ function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & {
             onMouseDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "nw", imageWidth, imageHeight);
+              onResizeStart(e, id, "nw", safeImageWidth, safeImageHeight);
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "nw", imageWidth, imageHeight);
+              onResizeStart(e, id, "nw", safeImageWidth, safeImageHeight);
             }}
           />
           <div
@@ -476,12 +566,12 @@ function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & {
             onMouseDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "ne", imageWidth, imageHeight);
+              onResizeStart(e, id, "ne", safeImageWidth, safeImageHeight);
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "ne", imageWidth, imageHeight);
+              onResizeStart(e, id, "ne", safeImageWidth, safeImageHeight);
             }}
           />
           <div
@@ -496,12 +586,12 @@ function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & {
             onMouseDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "sw", imageWidth, imageHeight);
+              onResizeStart(e, id, "sw", safeImageWidth, safeImageHeight);
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "sw", imageWidth, imageHeight);
+              onResizeStart(e, id, "sw", safeImageWidth, safeImageHeight);
             }}
           />
           <div
@@ -516,12 +606,12 @@ function ImageNodeComponent({ id, data, selected, onResizeStart }: NodeProps & {
             onMouseDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "se", imageWidth, imageHeight);
+              onResizeStart(e, id, "se", safeImageWidth, safeImageHeight);
             }}
             onPointerDown={(e) => {
               e.stopPropagation();
               e.preventDefault();
-              onResizeStart(e, id, "se", imageWidth, imageHeight);
+              onResizeStart(e, id, "se", safeImageWidth, safeImageHeight);
             }}
           />
         </>
@@ -901,13 +991,47 @@ export function BrainGraph({
 
   /** Persist editable canvas to localStorage. */
   useEffect(() => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        nodes,
-        edges,
-      }),
-    );
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          nodes,
+          edges,
+        }),
+      );
+    } catch (error) {
+      console.warn("LOCAL STORAGE SAVE FAILED:", error);
+      // If quota exceeded, try to save without image data URLs
+      if (error instanceof Error && error.name === 'QuotaExceededError') {
+        console.warn("localStorage quota exceeded - attempting to save without image data");
+        try {
+          const nodesWithoutImages = nodes.map(node => {
+            if (node.type === 'image') {
+              const { imageUrl, ...rest } = node.data;
+              return {
+                ...node,
+                data: {
+                  ...rest,
+                  imageUrl: undefined, // Remove large image data
+                }
+              };
+            }
+            return node;
+          });
+          
+          localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({
+              nodes: nodesWithoutImages,
+              edges,
+            }),
+          );
+          console.warn("Saved canvas without image data to prevent quota exceeded error");
+        } catch (retryError) {
+          console.error("Failed to save even without images:", retryError);
+        }
+      }
+    }
   }, [nodes, edges]);
 
   /** Immediately notify parent of state changes for search and history tracking */
@@ -1652,6 +1776,14 @@ export function BrainGraph({
   /** Handle paste event to add image nodes */
   useEffect(() => {
     const handlePaste = async (e: ClipboardEvent) => {
+      console.log("PASTE EVENT DETECTED");
+      
+      // Check if clipboardData exists
+      if (!e.clipboardData) {
+        console.warn("PASTE: clipboardData is null/undefined");
+        return;
+      }
+
       // Check if the paste is happening in an input/textarea/contenteditable
       const target = e.target as HTMLElement;
       const tagName = target.tagName.toLowerCase();
@@ -1665,34 +1797,60 @@ export function BrainGraph({
                          target.closest('[contenteditable="true"]');
 
       if (isEditable) {
+        console.log("PASTE: Ignoring paste in editable element");
         return; // Let the default paste behavior happen in editable elements
       }
 
       const items = e.clipboardData?.items;
-      if (!items) return;
+      if (!items || items.length === 0) {
+        console.log("PASTE: No clipboard items found");
+        return;
+      }
 
       // Find image in clipboard
       const imageItem = Array.from(items).find(item => 
         item.type.startsWith('image/') && item.kind === 'file'
       );
       
-      if (!imageItem) return;
+      if (!imageItem) {
+        console.log("PASTE: No image item found in clipboard");
+        return;
+      }
+
+      console.log("IMAGE FILE FOUND:", imageItem.type);
 
       // Prevent default paste behavior
       e.preventDefault();
 
       // Read the image file
       const file = imageItem.getAsFile();
-      if (!file) return;
+      if (!file) {
+        console.warn("PASTE: getAsFile() returned null");
+        return;
+      }
+
+      console.log("PASTE: Reading file with FileReader");
 
       const reader = new FileReader();
       
       reader.onload = (event) => {
-        const imageUrl = event.target?.result as string;
+        console.log("FILE READER LOADED");
+        
+        // Validate that result is a string
+        const result = event.target?.result;
+        if (typeof result !== 'string') {
+          console.error("PASTE: FileReader result is not a string:", typeof result);
+          return;
+        }
+        
+        const imageUrl = result;
         
         // Get the center of the current viewport
         const container = document.querySelector('.react-flow') as HTMLElement;
-        if (!container) return;
+        if (!container) {
+          console.warn("PASTE: React flow container not found");
+          return;
+        }
 
         const rect = container.getBoundingClientRect();
         const screenCenterX = rect.left + rect.width / 2;
@@ -1701,7 +1859,7 @@ export function BrainGraph({
         // Convert screen coordinates to flow coordinates
         const flowPosition = screenToFlowPosition({ x: screenCenterX, y: screenCenterY });
 
-        // Create image node
+        // Create image node with safe defaults
         const newNodeId = `image-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const defaultWidth = 320;
         const defaultHeight = 220;
@@ -1725,7 +1883,12 @@ export function BrainGraph({
           deletable: true,
         };
 
+        console.log("IMAGE NODE CREATED:", newNodeId);
         setNodes((currentNodes) => [...currentNodes, newNode]);
+      };
+
+      reader.onerror = (error) => {
+        console.error("PASTE: FileReader error:", error);
       };
 
       reader.readAsDataURL(file);
