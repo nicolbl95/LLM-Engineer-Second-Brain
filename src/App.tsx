@@ -137,6 +137,10 @@ function AppContent() {
     redo();
   }, [redo]);
 
+  const handleOpenSearch = useCallback(() => {
+    setIsSearchOpen(true);
+  }, []);
+
   // Global keyboard shortcut for search.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -258,6 +262,7 @@ function AppContent() {
             onHistoryStateChange={handleCanvasStateChange}
             restoreHistoryState={historyState}
             focusNodeId={focusNodeId}
+            onOpenSearch={handleOpenSearch}
           />
 
           {isSearchOpen && (

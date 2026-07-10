@@ -57,6 +57,7 @@ interface BrainGraphProps {
   onHistoryStateChange?: (state: { nodes: any[]; edges: any[] }) => void;
   restoreHistoryState?: { nodes: any[]; edges: any[] } | null;
   focusNodeId?: string | null;
+  onOpenSearch?: () => void;
 }
 
 type LocalizedText = {
@@ -878,6 +879,7 @@ export function BrainGraph({
   onHistoryStateChange,
   restoreHistoryState,
   focusNodeId,
+  onOpenSearch,
 }: BrainGraphProps) {
   const { language } = useLanguage();
   const { fitView, zoomIn, zoomOut, screenToFlowPosition, getNode } = useReactFlow();
@@ -1975,6 +1977,18 @@ export function BrainGraph({
         >
           {language === "fr" ? "Centrer" : "Fit"}
         </button>
+
+        {onOpenSearch && (
+          <button
+            type="button"
+            onClick={onOpenSearch}
+            className="zoom-button zoom-button--fit"
+            aria-label={language === "fr" ? "Rechercher (Ctrl+F)" : "Search (Ctrl+F)"}
+            title={language === "fr" ? "Rechercher (Ctrl+F)" : "Search (Ctrl+F)"}
+          >
+            Ctrl + F
+          </button>
+        )}
       </div>
 
       {/* Export button with titles only - bottom right, opposite minimap */}
