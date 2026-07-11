@@ -68,36 +68,17 @@ export function generateDefinition(term: string, language: Language): Definition
   const customDef = findCustomDefinition(normalizedTerm, customDefinitions);
   
   if (customDef) {
-    // Check if the current language has content
-    const hasCurrentLanguage = language === "fr" 
-      ? customDef.definition.fr 
-      : customDef.definition.en;
-    
-    if (hasCurrentLanguage) {
-      // Return custom definition for the current language
-      return {
-        term: customDef.term,
-        simpleDefinition: language === "fr" ? customDef.definition.fr : customDef.definition.en,
-        metaphor: language === "fr" ? customDef.metaphor.fr : customDef.metaphor.en,
-        whyItMatters: language === "fr" ? customDef.whyItMatters.fr : customDef.whyItMatters.en,
-        foundInGraph: false,
-        isCustomDefinition: true,
-        notFound: false,
-      };
-    } else {
-      // Custom definition exists but not in current language
-      return {
-        term: customDef.term,
-        simpleDefinition: language === "fr" 
-          ? `Cette définition existe, mais elle n'a pas encore été remplie en français.`
-          : `This definition exists, but it has not been filled in English yet.`,
-        metaphor: "",
-        whyItMatters: "",
-        foundInGraph: false,
-        isCustomDefinition: true,
-        notFound: false,
-      };
-    }
+    // Use pick() with fallback to show content in the requested language,
+    // falling back to the other language if the requested one is missing
+    return {
+      term: customDef.term,
+      simpleDefinition: pick(customDef.definition, language),
+      metaphor: pick(customDef.metaphor, language),
+      whyItMatters: pick(customDef.whyItMatters, language),
+      foundInGraph: false,
+      isCustomDefinition: true,
+      notFound: false,
+    };
   }
   
   // No custom definition found - return not found with suggestions

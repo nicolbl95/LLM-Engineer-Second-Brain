@@ -4,6 +4,7 @@ import type { BrainNode } from "../types/brain";
 import { useLanguage } from "../context/LanguageContext";
 import { ui, uiNested } from "../data/uiStrings";
 import { getNodeColor } from "../utils/graphHelpers";
+import { pick } from "../utils/i18n";
 
 interface ConceptDrawerProps {
   node: BrainNode | null;
@@ -98,7 +99,7 @@ export function ConceptDrawer({
             </label>
             <textarea
               className="drawer__textarea"
-              value={currentDraft.title[language]}
+              value={pick(currentDraft.title, language)}
               readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
@@ -117,7 +118,7 @@ export function ConceptDrawer({
             </label>
             <textarea
               className="drawer__textarea"
-              value={currentDraft.simpleExplanation[language]}
+              value={pick(currentDraft.simpleExplanation, language)}
               readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
@@ -136,7 +137,7 @@ export function ConceptDrawer({
             </label>
             <textarea
               className="drawer__textarea"
-              value={currentDraft.summary?.[language] ?? ""}
+              value={currentDraft.summary ? pick(currentDraft.summary, language) : ""}
               readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
