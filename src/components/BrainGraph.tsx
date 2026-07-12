@@ -23,7 +23,7 @@ import type { BrainEdge, BrainNode, PillarId, RelationshipType } from "../types/
 import { brainNodes, brainEdges } from "../data/graph";
 import { useLanguage } from "../context/LanguageContext";
 import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
-import { pick } from "../utils/i18n";
+import { pick, normalizeBrainNode } from "../utils/i18n";
 import { EdgeEditor } from "./EdgeEditor";
 import { generateTreeExport, generateTreeTitleOnlyExport, copyToClipboard } from "../utils/treeExport";
 
@@ -93,6 +93,77 @@ const PROTECTED_NODE_IDS = new Set([
   "llm-engineer-root",
   "root",
 ]);
+
+/**
+ * Localized text fields on BrainNode that should be checked
+ * when recovering English content from static graph.ts nodes.
+ */
+const LOCALIZED_TEXT_FIELDS: (keyof BrainNode)[] = [
+  "title",
+  "shortSummary",
+  "simpleExplanation",
+  "deepExplanation",
+  "whyItMatters",
+  "miniExplanation",
+  "summary",
+];
+
+/**
+ * Check whether the English field of a saved node is effectively missing
+ * and should be recovered from the static graph.ts definition.
+ *
+ * Returns true when the English field is:
+ * - undefined / empty string
+ * - exactly "New Node"
+ * - identical to the French field (likely a copy-paste of French text)
+ */
+function englishIsMissing(node: BrainNode, field: keyof BrainNode): boolean {
+  const value = node[field] as LocalizedText | undefined;
+  if (!value || typeof value !== "object") return true;
+  const en = (value.en ?? "").trim();
+  const fr = (value.fr ?? "").trim();
+  if (!en) return true;
+  if (en === "New Node") return true;
+  // If English equals French AND both are non-empty,
+  // this looks like French text copied into the English slot.
+  // Exception: acronyms / proper nouns that are legitimately the same
+  // in both languages (e.g. "LLM", "RAG", "Docker").
+  // For those, the static node will have identical fr/en too, so
+  // merging will produce the same result — no harm.
+  if (en === fr && fr.length > 0) return true;
+  return false;
+}
+
+/**
+ * Recover missing English content from the matching static graph.ts node.
+ *
+ * Only repairs English fields that appear to be missing (empty, "New Node",
+ * or identical to the French text). Preserves user-edited English fields.
+ *
+ * @param savedNode - The node loaded from localStorage
+ * @returns A new BrainNode with English fields merged from static definitions
+ */
+function mergeStaticEnglish(savedNode: BrainNode): BrainNode {
+  const staticNode = brainNodes.find((n) => n.id === savedNode.id);
+  if (!staticNode) return savedNode;
+
+  const merged = { ...savedNode };
+
+  for (const field of LOCALIZED_TEXT_FIELDS) {
+    if (englishIsMissing(savedNode, field)) {
+      const staticValue = staticNode[field] as LocalizedText | undefined;
+      const savedValue = savedNode[field] as LocalizedText | undefined;
+      if (staticValue?.en) {
+        (merged as any)[field] = {
+          fr: savedValue?.fr ?? staticValue.fr ?? "",
+          en: staticValue.en,
+        };
+      }
+    }
+  }
+
+  return merged;
+}
 
 /** Custom React Flow node — label uses active language only. */
 function BrainNodeComponent({ 
@@ -630,32 +701,32 @@ function BrainNodeComponent({
   );
 }
 
-/** Convert static brain data into editable React Flow nodes. */
-function createInitialFlowNodes(language: "fr" | "en"): Node[] {
-  return brainNodes.map((n) => ({
-    id: n.id,
-    type: "brain",
-    position: n.position,
-    data: {
-      node: n,
-      label: pick(n.title, language),
-      miniExplanation: n.miniExplanation ? n.miniExplanation[language] : "",
-      nodeWidth: n.nodeWidth ?? 180,
-      nodeHeight: n.nodeHeight ?? 64,
-      miniExplanationWidth: n.miniExplanationWidth ?? 180,
-      miniExplanationHeight: n.miniExplanationHeight ?? 60,
-      summary: n.summary ? pick(n.summary, language) : "",
-      summaryWidth: n.summaryWidth ?? 520,
-      summaryHeight: n.summaryHeight ?? 120,
-      summaryOffsetX: n.summaryOffsetX ?? 0,
-      highlighted: false,
-      dimmed: false,
-    },
-    selected: false,
-    draggable: true,
-    deletable: !PROTECTED_NODE_IDS.has(n.id),
-  }));
-}
+  /** Convert static brain data into editable React Flow nodes. */
+  function createInitialFlowNodes(language: "fr" | "en"): Node[] {
+    return brainNodes.map((n) => ({
+      id: n.id,
+      type: "brain",
+      position: n.position,
+      data: {
+        node: n,
+        label: pick(n.title, language, "New Node"),
+        miniExplanation: n.miniExplanation ? pick(n.miniExplanation, language, "") : "",
+        nodeWidth: n.nodeWidth ?? 180,
+        nodeHeight: n.nodeHeight ?? 64,
+        miniExplanationWidth: n.miniExplanationWidth ?? 180,
+        miniExplanationHeight: n.miniExplanationHeight ?? 60,
+        summary: n.summary ? pick(n.summary, language, "") : "",
+        summaryWidth: n.summaryWidth ?? 520,
+        summaryHeight: n.summaryHeight ?? 120,
+        summaryOffsetX: n.summaryOffsetX ?? 0,
+        highlighted: false,
+        dimmed: false,
+      },
+      selected: false,
+      draggable: true,
+      deletable: !PROTECTED_NODE_IDS.has(n.id),
+    }));
+  }
 
 /** Convert static brain edges into editable React Flow edges. */
 function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
@@ -753,24 +824,31 @@ function normalizeLoadedFlowNode(flowNode: Node, language: "fr" | "en"): Node {
   // If node already has valid data.node, preserve it and update language-dependent fields
   if (flowNode.data?.node) {
     const brainNode = flowNode.data.node as BrainNode;
+    
+    // Normalize the brain node to clean up bad saved data
+    const normalizedNode = normalizeBrainNode(brainNode);
+    
+    // Recover missing English fields from static graph.ts definitions
+    const mergedNode = mergeStaticEnglish(normalizedNode);
+    
     return {
       ...flowNode,
       type: "brain",
       data: {
         ...flowNode.data,
-        node: brainNode,
-        label: pick(brainNode.title, language),
-        miniExplanation: brainNode.miniExplanation
-          ? pick(brainNode.miniExplanation, language)
+        node: mergedNode,
+        label: pick(mergedNode.title, language, "New Node"),
+        miniExplanation: mergedNode.miniExplanation
+          ? pick(mergedNode.miniExplanation, language)
           : "",
-        nodeWidth: flowNode.data.nodeWidth ?? brainNode.nodeWidth ?? 180,
-        nodeHeight: flowNode.data.nodeHeight ?? brainNode.nodeHeight ?? 64,
-        miniExplanationWidth: flowNode.data.miniExplanationWidth ?? brainNode.miniExplanationWidth ?? 180,
-        miniExplanationHeight: flowNode.data.miniExplanationHeight ?? brainNode.miniExplanationHeight ?? 60,
-        summary: brainNode.summary ? pick(brainNode.summary, language) : "",
-        summaryWidth: flowNode.data.summaryWidth ?? brainNode.summaryWidth ?? 520,
-        summaryHeight: flowNode.data.summaryHeight ?? brainNode.summaryHeight ?? 120,
-        summaryOffsetX: flowNode.data.summaryOffsetX ?? brainNode.summaryOffsetX ?? 0,
+        nodeWidth: flowNode.data.nodeWidth ?? mergedNode.nodeWidth ?? 180,
+        nodeHeight: flowNode.data.nodeHeight ?? mergedNode.nodeHeight ?? 64,
+        miniExplanationWidth: flowNode.data.miniExplanationWidth ?? mergedNode.miniExplanationWidth ?? 180,
+        miniExplanationHeight: flowNode.data.miniExplanationHeight ?? mergedNode.miniExplanationHeight ?? 60,
+        summary: mergedNode.summary ? pick(mergedNode.summary, language, "") : "",
+        summaryWidth: flowNode.data.summaryWidth ?? mergedNode.summaryWidth ?? 520,
+        summaryHeight: flowNode.data.summaryHeight ?? mergedNode.summaryHeight ?? 120,
+        summaryOffsetX: flowNode.data.summaryOffsetX ?? mergedNode.summaryOffsetX ?? 0,
         highlighted: false,
         dimmed: false,
       },
@@ -783,23 +861,26 @@ function normalizeLoadedFlowNode(flowNode: Node, language: "fr" | "en"): Node {
   // If data.node is missing, try to recover from static brainNodes
   const staticNode = brainNodes.find((n) => n.id === flowNode.id);
   if (staticNode) {
+    // Normalize the static node as well
+    const normalizedStaticNode = normalizeBrainNode(staticNode);
+    
     return {
       ...flowNode,
       type: "brain",
       data: {
-        node: staticNode,
-        label: pick(staticNode.title, language),
-        miniExplanation: staticNode.miniExplanation
-          ? pick(staticNode.miniExplanation, language)
+        node: normalizedStaticNode,
+        label: pick(normalizedStaticNode.title, language, "New Node"),
+        miniExplanation: normalizedStaticNode.miniExplanation
+          ? pick(normalizedStaticNode.miniExplanation, language, "")
           : "",
-        nodeWidth: flowNode.data?.nodeWidth ?? staticNode.nodeWidth ?? 180,
-        nodeHeight: flowNode.data?.nodeHeight ?? staticNode.nodeHeight ?? 64,
-        miniExplanationWidth: flowNode.data?.miniExplanationWidth ?? staticNode.miniExplanationWidth ?? 180,
-        miniExplanationHeight: flowNode.data?.miniExplanationHeight ?? staticNode.miniExplanationHeight ?? 60,
-        summary: staticNode.summary ? pick(staticNode.summary, language) : "",
-        summaryWidth: flowNode.data?.summaryWidth ?? staticNode.summaryWidth ?? 520,
-        summaryHeight: flowNode.data?.summaryHeight ?? staticNode.summaryHeight ?? 120,
-        summaryOffsetX: flowNode.data?.summaryOffsetX ?? staticNode.summaryOffsetX ?? 0,
+        nodeWidth: flowNode.data?.nodeWidth ?? normalizedStaticNode.nodeWidth ?? 180,
+        nodeHeight: flowNode.data?.nodeHeight ?? normalizedStaticNode.nodeHeight ?? 64,
+        miniExplanationWidth: flowNode.data?.miniExplanationWidth ?? normalizedStaticNode.miniExplanationWidth ?? 180,
+        miniExplanationHeight: flowNode.data?.miniExplanationHeight ?? normalizedStaticNode.miniExplanationHeight ?? 60,
+        summary: normalizedStaticNode.summary ? pick(normalizedStaticNode.summary, language, "") : "",
+        summaryWidth: flowNode.data?.summaryWidth ?? normalizedStaticNode.summaryWidth ?? 520,
+        summaryHeight: flowNode.data?.summaryHeight ?? normalizedStaticNode.summaryHeight ?? 120,
+        summaryOffsetX: flowNode.data?.summaryOffsetX ?? normalizedStaticNode.summaryOffsetX ?? 0,
         highlighted: false,
         dimmed: false,
       },
@@ -946,9 +1027,12 @@ export function BrainGraph({
           deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
           data: {
             ...data,
-            label: pick(brainNode.title, language),
+            label: pick(brainNode.title, language, "New Node"),
             miniExplanation: brainNode.miniExplanation
-              ? pick(brainNode.miniExplanation, language)
+              ? pick(brainNode.miniExplanation, language, "")
+              : "",
+            summary: brainNode.summary
+              ? pick(brainNode.summary, language, "")
               : "",
             highlighted: isHighlighted,
             dimmed:
@@ -1072,12 +1156,12 @@ export function BrainGraph({
           data: {
             ...flowNode.data,
             node: updatedNode,
-            label: pick(updatedNode.title, language),
+            label: pick(updatedNode.title, language, "New Node"),
             miniExplanation: updatedNode.miniExplanation
-              ? pick(updatedNode.miniExplanation, language)
+              ? pick(updatedNode.miniExplanation, language, "")
               : "",
             summary: updatedNode.summary
-              ? pick(updatedNode.summary, language)
+              ? pick(updatedNode.summary, language, "")
               : "",
             highlighted: true,
             dimmed: false,
@@ -1247,7 +1331,7 @@ export function BrainGraph({
             summaryHeight: 120,
             summaryOffsetX: 0,
           } as BrainNode,
-          label: language === "fr" ? "Nouveau Nœud" : "New Node",
+          label: pick({ fr: "Nouveau Nœud", en: "New Node" }, language, "New Node"),
           nodeWidth: 180,
           nodeHeight: 64,
           summaryWidth: 520,
@@ -1301,7 +1385,7 @@ export function BrainGraph({
           summaryHeight: 120,
           summaryOffsetX: 0,
         } as BrainNode,
-        label: language === "fr" ? "Nouveau Nœud" : "New Node",
+        label: pick({ fr: "Nouveau Nœud", en: "New Node" }, language, "New Node"),
         nodeWidth: 180,
         nodeHeight: 64,
         summaryWidth: 520,

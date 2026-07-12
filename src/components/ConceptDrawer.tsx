@@ -99,7 +99,7 @@ export function ConceptDrawer({
             </label>
             <textarea
               className="drawer__textarea"
-              value={pick(currentDraft.title, language)}
+              value={pick(currentDraft.title, language, "New Node")}
               readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
@@ -118,7 +118,7 @@ export function ConceptDrawer({
             </label>
             <textarea
               className="drawer__textarea"
-              value={pick(currentDraft.simpleExplanation, language)}
+              value={pick(currentDraft.simpleExplanation, language, "")}
               readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
@@ -137,7 +137,7 @@ export function ConceptDrawer({
             </label>
             <textarea
               className="drawer__textarea"
-              value={currentDraft.summary ? pick(currentDraft.summary, language) : ""}
+              value={pick(currentDraft.summary, language, "")}
               readOnly={isReadOnly}
               onChange={(e) =>
                 updateDraft({
