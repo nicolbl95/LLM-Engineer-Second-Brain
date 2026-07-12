@@ -116,7 +116,8 @@ export interface SavedNote {
 /** Custom definition created by the user. */
 export interface CustomDefinition {
   id: string;
-  term: string;
+  /** Bilingual term — migrated from plain strings on load. */
+  term: LocalizedText;
   definition: {
     fr: string;
     en: string;

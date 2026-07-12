@@ -1033,7 +1033,14 @@ export function BrainGraph({
         const brainNode = data.node;
         if (!brainNode) return flowNode;
 
-        const visible = nodeMatchesFilter(brainNode, activePillar);
+        // Recover missing English from static graph.ts definitions
+        // on every language change (not just initial load).
+        // If mergeStaticEnglish already ran during loadSavedCanvas,
+        // this is a no-op because englishIsMissing returns false
+        // for correctly-set English fields.
+        const mergedNode = mergeStaticEnglish(brainNode);
+
+        const visible = nodeMatchesFilter(mergedNode, activePillar);
         const isHighlighted = highlightSet.has(flowNode.id);
 
         return {
@@ -1042,14 +1049,15 @@ export function BrainGraph({
           selected: flowNode.id === selectedNodeId,
           deletable: !PROTECTED_NODE_IDS.has(flowNode.id),
           data: {
-            ...data,
-            label: pick(brainNode.title, language, "New Node"),
-            miniExplanation: brainNode.miniExplanation
-              ? pick(brainNode.miniExplanation, language, "")
-              : "",
-            summary: brainNode.summary
-              ? pick(brainNode.summary, language, "")
-              : "",
+          ...data,
+          node: mergedNode,
+          label: pick(mergedNode.title, language, "New Node"),
+          miniExplanation: mergedNode.miniExplanation
+            ? pick(mergedNode.miniExplanation, language, "")
+            : "",
+          summary: mergedNode.summary
+            ? pick(mergedNode.summary, language, "")
+            : "",
             highlighted: isHighlighted,
             dimmed:
               hasHighlight &&

@@ -71,7 +71,7 @@ export function generateDefinition(term: string, language: Language): Definition
     // Use pick() with fallback to show content in the requested language,
     // falling back to the other language if the requested one is missing
     return {
-      term: customDef.term,
+      term: pick(customDef.term, language, trimmed),
       simpleDefinition: pick(customDef.definition, language),
       metaphor: pick(customDef.metaphor, language),
       whyItMatters: pick(customDef.whyItMatters, language),
@@ -103,19 +103,20 @@ function findSimilarDefinitions(term: string, definitions: CustomDefinition[]): 
   
   const normalizedInput = term.toLowerCase();
   
-  // Calculate similarity scores
+  // Calculate similarity scores using the French term as the primary key
   const scored = definitions
-    .map(def => {
-      const normalizedDef = def.term.toLowerCase();
+    .map((def) => {
+      const displayTerm = def.term.fr || def.term.en;
+      const normalizedDef = displayTerm.toLowerCase();
       const distance = levenshteinDistance(normalizedInput, normalizedDef);
       const maxLength = Math.max(normalizedInput.length, normalizedDef.length);
-      const similarity = maxLength === 0 ? 1 : 1 - (distance / maxLength);
-      return { term: def.term, similarity };
+      const similarity = maxLength === 0 ? 1 : 1 - distance / maxLength;
+      return { term: displayTerm, similarity };
     })
-    .filter(item => item.similarity > 0.5) // Only include reasonably similar terms
-    .sort((a, b) => b.similarity - a.similarity) // Sort by similarity descending
-    .slice(0, 5) // Take top 5
-    .map(item => item.term);
+    .filter((item) => item.similarity > 0.5)
+    .sort((a, b) => b.similarity - a.similarity)
+    .slice(0, 5)
+    .map((item) => item.term);
   
   return scored;
 }

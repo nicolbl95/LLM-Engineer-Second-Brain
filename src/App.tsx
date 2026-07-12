@@ -80,6 +80,23 @@ function AppContent() {
     [activeCanvasState.nodes],
   );
 
+  /**
+   * When language changes while the drawer is open, refresh selectedNode
+   * from the active canvas state, which already has merged English fields
+   * from the BrainGraph useEffect.
+   */
+  useEffect(() => {
+    if (!selectedNodeId) return;
+
+    const activeNode = activeCanvasState.nodes.find(
+      (n) => n.id === selectedNodeId,
+    );
+    const nodeData = activeNode?.data?.node as BrainNode | undefined;
+    if (nodeData) {
+      setSelectedNode(nodeData);
+    }
+  }, [language, selectedNodeId, activeCanvasState]);
+
   const handleNodeUpdate = useCallback((node: BrainNode) => {
     setSelectedNode(node);
     setSelectedNodeId(node.id);

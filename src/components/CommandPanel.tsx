@@ -1,12 +1,88 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Trash2, BookOpen, Plus, Database, Clipboard } from "lucide-react";
 import { useLanguage } from "../context/LanguageContext";
-import type { CustomDefinition } from "../types/brain";
+import type { CustomDefinition, LocalizedText } from "../types/brain";
 import {
   addCustomDefinition,
   loadCustomDefinitions,
   deleteCustomDefinitions,
+  saveCustomDefinitions,
 } from "../utils/customDefinitions";
+import { pick } from "../utils/i18n";
+import { translateText } from "../utils/autoTranslate";
+
+/**
+ * Safely get a string from a value that could be:
+ *   - LocalizedText object { fr, en }
+ *   - plain string (old format)
+ *   - undefined / null
+ */
+function safeGetStr(
+  value: LocalizedText | string | null | undefined,
+  language: "fr" | "en",
+  fallback = "",
+): string {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return fallback;
+
+  const preferred = typeof value[language] === "string" ? value[language].trim() : "";
+  const other = language === "fr"
+    ? (typeof value.en === "string" ? value.en.trim() : "")
+    : (typeof value.fr === "string" ? value.fr.trim() : "");
+
+  if (preferred) return preferred;
+  if (other) return other;
+  return fallback;
+}
+
+/**
+ * Normalize a potentially-malformed definition from localStorage
+ * into a safe CustomDefinition. Handles:
+ *   - term as string → { fr: string, en: "" }
+ *   - definition/metaphor/whyItMatters as string → { fr: string, en: "" }
+ *   - missing fields → empty bilingual objects
+ */
+function normalizeDefinition(raw: Record<string, unknown>): CustomDefinition {
+  const term: LocalizedText =
+    typeof raw.term === "string"
+      ? { fr: raw.term, en: "" }
+      : raw.term && typeof raw.term === "object"
+        ? { fr: String((raw.term as LocalizedText).fr ?? ""), en: String((raw.term as LocalizedText).en ?? "") }
+        : { fr: "", en: "" };
+
+  const makeBilingual = (val: unknown): { fr: string; en: string } => {
+    if (typeof val === "string") return { fr: val, en: "" };
+    if (val && typeof val === "object") {
+      return {
+        fr: String((val as Record<string, unknown>).fr ?? ""),
+        en: String((val as Record<string, unknown>).en ?? ""),
+      };
+    }
+    return { fr: "", en: "" };
+  };
+
+  return {
+    id: String(raw.id ?? ""),
+    term,
+    definition: makeBilingual(raw.definition),
+    metaphor: makeBilingual(raw.metaphor),
+    whyItMatters: makeBilingual(raw.whyItMatters),
+    createdAt: String(raw.createdAt ?? ""),
+  };
+}
+
+/** Load and normalize all saved definitions (defensive). */
+function loadNormalizedDefinitions(): CustomDefinition[] {
+  try {
+    const raw = localStorage.getItem("custom-definitions");
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item: unknown) => normalizeDefinition(item as Record<string, unknown>));
+  } catch {
+    return [];
+  }
+}
 
 interface DefinitionResult {
   term: string;
@@ -52,10 +128,106 @@ export function CommandPanel({
   const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(
     new Set(),
   );
+  const [isTranslatingDefs, setIsTranslatingDefs] = useState(false);
+
+  /** Track which definition IDs have already been auto-translated. */
+  const translatedDefIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
-    setSavedDefinitions(loadCustomDefinitions());
+    try {
+      setSavedDefinitions(loadNormalizedDefinitions());
+    } catch (err) {
+      console.error("[CommandPanel] Failed to load saved definitions", err);
+    }
   }, [saveSuccess]);
+
+  /**
+   * Auto-translate missing English fields for saved definitions
+   * when the user switches to English.
+   */
+  useEffect(() => {
+    if (language !== "en") return;
+
+    let defs: CustomDefinition[];
+    try {
+      defs = loadNormalizedDefinitions();
+    } catch (err) {
+      console.error("[CommandPanel] Auto-translate load failed", err);
+      return;
+    }
+
+    let needsTranslation = false;
+    try {
+      for (const def of defs) {
+        if (translatedDefIdsRef.current.has(def.id)) continue;
+        if (def.term.fr && (!def.term.en || def.term.en === def.term.fr)) { needsTranslation = true; break; }
+        if (def.definition.fr && (!def.definition.en || def.definition.en === def.definition.fr)) { needsTranslation = true; break; }
+        if (def.metaphor.fr && (!def.metaphor.en || def.metaphor.en === def.metaphor.fr)) { needsTranslation = true; break; }
+        if (def.whyItMatters.fr && (!def.whyItMatters.en || def.whyItMatters.en === def.whyItMatters.fr)) { needsTranslation = true; break; }
+      }
+    } catch (err) {
+      console.error("[CommandPanel] Auto-translate check failed", err);
+      return;
+    }
+
+    if (!needsTranslation) return;
+
+    console.log("[CommandPanel] DEFINITION AUTO TRANSLATE START");
+
+    const runTranslation = async () => {
+      setIsTranslatingDefs(true);
+      let modified = false;
+      const updated = defs.map((d) => ({ ...d }));
+
+      for (const def of updated) {
+        try {
+          if (translatedDefIdsRef.current.has(def.id)) continue;
+          translatedDefIdsRef.current.add(def.id);
+
+          if (def.term.fr && (!def.term.en || def.term.en === def.term.fr)) {
+            try {
+              const t = await translateText(def.term.fr, "en");
+              if (t && t !== def.term.fr) { def.term = { ...def.term, en: t }; modified = true; }
+            } catch (e) { console.warn("[CommandPanel] translate term failed", e); }
+          }
+          if (def.definition.fr && (!def.definition.en || def.definition.en === def.definition.fr)) {
+            try {
+              const t = await translateText(def.definition.fr, "en");
+              if (t && t !== def.definition.fr) { def.definition = { ...def.definition, en: t }; modified = true; }
+            } catch (e) { console.warn("[CommandPanel] translate definition failed", e); }
+          }
+          if (def.metaphor.fr && (!def.metaphor.en || def.metaphor.en === def.metaphor.fr)) {
+            try {
+              const t = await translateText(def.metaphor.fr, "en");
+              if (t && t !== def.metaphor.fr) { def.metaphor = { ...def.metaphor, en: t }; modified = true; }
+            } catch (e) { console.warn("[CommandPanel] translate metaphor failed", e); }
+          }
+          if (def.whyItMatters.fr && (!def.whyItMatters.en || def.whyItMatters.en === def.whyItMatters.fr)) {
+            try {
+              const t = await translateText(def.whyItMatters.fr, "en");
+              if (t && t !== def.whyItMatters.fr) { def.whyItMatters = { ...def.whyItMatters, en: t }; modified = true; }
+            } catch (e) { console.warn("[CommandPanel] translate whyItMatters failed", e); }
+          }
+        } catch (err) {
+          console.error("[CommandPanel] Auto-translate crash for definition", def.id, err);
+        }
+      }
+
+      if (modified) {
+        try {
+          saveCustomDefinitions(updated);
+          setSavedDefinitions(updated);
+          console.log("[CommandPanel] DEFINITION AUTO TRANSLATE DONE");
+        } catch (err) {
+          console.error("[CommandPanel] Failed to save translations", err);
+        }
+      }
+
+      setIsTranslatingDefs(false);
+    };
+
+    runTranslation();
+  }, [language]);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
@@ -74,7 +246,10 @@ export function CommandPanel({
     if (!trimmedTerm) return;
 
     addCustomDefinition({
-      term: trimmedTerm,
+      term: {
+        fr: language === "fr" ? trimmedTerm : "",
+        en: language === "en" ? trimmedTerm : "",
+      },
       definition: {
         fr: language === "fr" ? formDefinition : "",
         en: language === "en" ? formDefinition : "",
@@ -99,10 +274,11 @@ export function CommandPanel({
     window.setTimeout(() => setSaveSuccess(false), 3000);
   };
 
-  const openSavedDefinition = (term: string) => {
+  const openSavedDefinition = (def: CustomDefinition) => {
+    const displayTerm = pick(def.term, language, def.term.fr || def.term.en || "");
     setActiveTab("define");
-    setInput(term);
-    onDefine?.(term);
+    setInput(displayTerm);
+    onDefine?.(displayTerm);
   };
 
   const handleDeleteClick = () => {
@@ -122,23 +298,29 @@ export function CommandPanel({
     }
   };
 
-  const handleChipClick = (def: CustomDefinition) => {
-    if (deleteMode) {
-      // In delete mode: toggle selection
-      setSelectedForDeletion((prev) => {
-        const newSet = new Set(prev);
-        if (newSet.has(def.id)) {
-          newSet.delete(def.id);
-        } else {
-          newSet.add(def.id);
-        }
-        return newSet;
-      });
-    } else {
-      // Normal mode: open definition
-      openSavedDefinition(def.term);
+  const handleChipClick = useCallback((def: CustomDefinition) => {
+    try {
+      if (deleteMode) {
+        setSelectedForDeletion((prev) => {
+          try {
+            const newSet = new Set(prev);
+            if (newSet.has(def.id)) {
+              newSet.delete(def.id);
+            } else {
+              newSet.add(def.id);
+            }
+            return newSet;
+          } catch {
+            return prev;
+          }
+        });
+      } else {
+        openSavedDefinition(def);
+      }
+    } catch (err) {
+      console.error("[CommandPanel] Saved definition click failed", err, def);
     }
-  };
+  }, [deleteMode, openSavedDefinition, language, onDefine]);
 
   const copyAllDefinitions = async () => {
     if (savedDefinitions.length === 0) {
@@ -158,11 +340,12 @@ export function CommandPanel({
         const metaphorLabel = isFr ? "Métaphore" : "Metaphor";
         const whyLabel = isFr ? "Pourquoi c'est important" : "Why it matters";
 
+        const displayTerm = pick(def.term, language, def.term.fr || def.term.en || "");
         const definition = def.definition[language] || placeholder;
         const metaphor = def.metaphor[language] || placeholder;
         const whyItMatters = def.whyItMatters[language] || placeholder;
 
-        return `${termLabel} : ${def.term}
+        return `${termLabel} : ${displayTerm}
 
 ${defLabel} :
 ${definition}
@@ -315,7 +498,10 @@ ${whyItMatters}`;
                                 key={suggestion}
                                 type="button"
                                 className="definition-suggestion-chip"
-                                onClick={() => openSavedDefinition(suggestion)}
+                                onClick={() => {
+                                  setInput(suggestion);
+                                  onDefine?.(suggestion);
+                                }}
                               >
                                 {suggestion}
                               </button>
@@ -556,7 +742,7 @@ ${whyItMatters}`;
                     }`}
                     onClick={() => handleChipClick(def)}
                   >
-                    {def.term}
+                    {pick(def.term, language, def.term.fr || def.term.en || "")}
                   </button>
                 ))}
               </div>

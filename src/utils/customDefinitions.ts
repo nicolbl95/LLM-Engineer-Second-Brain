@@ -1,15 +1,32 @@
-import type { CustomDefinition } from "../types/brain";
+import type { CustomDefinition, LocalizedText } from "../types/brain";
 
 const STORAGE_KEY = "custom-definitions";
 
 /**
- * Load all custom definitions from localStorage.
+ * Migrate old definitions where `term` was a plain string
+ * to the new bilingual format `{ fr, en }`.
+ */
+function migrateTerm(def: { term: string | LocalizedText }): LocalizedText {
+  if (typeof def.term === "string") {
+    return { fr: def.term, en: "" };
+  }
+  return def.term;
+}
+
+/**
+ * Load all custom definitions from localStorage,
+ * migrating old plain-string terms to bilingual objects.
  */
 export function loadCustomDefinitions(): CustomDefinition[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw) as CustomDefinition[];
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    return parsed
+      .map((item) => ({
+        ...item,
+        term: migrateTerm(item as { term: string | LocalizedText }),
+      })) as CustomDefinition[];
   } catch {
     return [];
   }
@@ -27,8 +44,8 @@ export function saveCustomDefinitions(definitions: CustomDefinition[]): void {
 }
 
 /**
- * Find a custom definition by term (case-insensitive, normalized).
- * Returns the definition if found, or undefined.
+ * Find a custom definition by term (case-insensitive, normalized),
+ * searching both French and English fields.
  */
 export function findCustomDefinition(
   term: string,
@@ -38,8 +55,9 @@ export function findCustomDefinition(
   if (!normalizedSearch) return undefined;
 
   return definitions.find((def) => {
-    const normalizedDef = normalizeTerm(def.term);
-    return normalizedDef === normalizedSearch;
+    const normalizedFr = normalizeTerm(def.term.fr);
+    const normalizedEn = normalizeTerm(def.term.en);
+    return normalizedFr === normalizedSearch || normalizedEn === normalizedSearch;
   });
 }
 
