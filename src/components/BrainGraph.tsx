@@ -149,6 +149,16 @@ function mergeStaticEnglish(savedNode: BrainNode): BrainNode {
 
   const merged = { ...savedNode };
 
+  // DEBUG: log merge for a known default node
+  if (savedNode.id === "vector-database") {
+    const svTitle = savedNode.title as LocalizedText | undefined;
+    const stTitle = staticNode.title as LocalizedText | undefined;
+    console.log("[mergeStaticEnglish] node:", savedNode.id);
+    console.log("  saved title.fr:", svTitle?.fr);
+    console.log("  saved title.en before merge:", svTitle?.en);
+    console.log("  static title.en:", stTitle?.en);
+  }
+
   for (const field of LOCALIZED_TEXT_FIELDS) {
     if (englishIsMissing(savedNode, field)) {
       const staticValue = staticNode[field] as LocalizedText | undefined;
@@ -160,6 +170,12 @@ function mergeStaticEnglish(savedNode: BrainNode): BrainNode {
         };
       }
     }
+  }
+
+  // DEBUG: log result after merge
+  if (savedNode.id === "vector-database") {
+    const mTitle = merged.title as LocalizedText;
+    console.log("  final title.en after merge:", mTitle.en);
   }
 
   return merged;
