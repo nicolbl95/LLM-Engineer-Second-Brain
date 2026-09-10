@@ -1,7 +1,6 @@
 import type { BrainNode, Language, SearchResult } from "../types/brain";
 import { brainNodes, brainEdges } from "../data/graph";
 import { pick } from "./i18n";
-import { getRelatedNodes } from "./graphHelpers";
 import { lt } from "./i18n";
 
 type MaybeLocalizedText = {
@@ -424,9 +423,6 @@ function generateGraphExpansionPlan(
 function generateConciseMarkdownResponse(
   query: string,
   matches: BrainNode[],
-  relatedNodes: BrainNode[],
-  activeNodes: BrainNode[],
-  activeEdges: typeof brainEdges,
   language: Language,
 ): string {
   const isEn = language === "en";
@@ -685,7 +681,6 @@ function levenshtein(a: string, b: string): number {
  */
 export function searchBrain(
   query: string,
-  language: Language,
   activeNodes?: BrainNode[],
   activeEdges?: typeof brainEdges
 ): SearchResult {
@@ -739,8 +734,8 @@ export function searchBrain(
 
   // Generate concise markdown response using active graph data
   const markdownResponse = lt(
-    generateConciseMarkdownResponse(trimmed, matches, relatedNodes, nodesToSearch, edgesToSearch, "fr"),
-    generateConciseMarkdownResponse(trimmed, matches, relatedNodes, nodesToSearch, edgesToSearch, "en"),
+    generateConciseMarkdownResponse(trimmed, matches, "fr"),
+    generateConciseMarkdownResponse(trimmed, matches, "en"),
   );
 
   if (bestMatch && scored[0].score >= 25) {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import type { BrainNode, LocalizedText } from "../types/brain";
 import { useLanguage } from "../context/LanguageContext";

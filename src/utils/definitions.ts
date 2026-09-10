@@ -152,7 +152,7 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
-function findMatchingNode(term: string): BrainNode | null {
+export function findMatchingNode(term: string): BrainNode | null {
   const lowerTerm = term.toLowerCase();
 
   // Exact match first
@@ -255,7 +255,7 @@ export function buildMetaphorFromNode(node: BrainNode, language: Language): stri
     : `Un bloc de construction dans le monde de l'IA et de l'ingénierie LLM qui aide à créer des systèmes plus intelligents.`;
 }
 
-function buildFallbackDefinition(term: string, language: Language, _graphContext: { title: string; summary: string; explanation: string; deepExplanation: string; } | null): DefinitionResult {
+export function buildFallbackDefinition(term: string, language: Language, _graphContext: { title: string; summary: string; explanation: string; deepExplanation: string; } | null): DefinitionResult {
   const isEn = language === "en";
   const lowerTerm = term.toLowerCase();
 

@@ -137,10 +137,6 @@ export function analyzeProject(description: string, language: Language): Project
 
   const existingAnalysis: { nodeId: string; nodeTitle: LocalizedText; relevanceExplanation: LocalizedText }[] = [];
 
-  let stackToCheck: string[] = [];
-  if (isRagProject) stackToCheck = idealRagStack;
-  else if (isAgentProject) stackToCheck = idealAgentStack;
-
   // Add matched nodes with explanations
   for (const node of matchedNodes) {
     // Build contextual explanation based on what the user described

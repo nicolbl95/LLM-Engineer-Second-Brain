@@ -12,30 +12,6 @@ import { pick } from "../utils/i18n";
 import { translateText } from "../utils/autoTranslate";
 
 /**
- * Safely get a string from a value that could be:
- *   - LocalizedText object { fr, en }
- *   - plain string (old format)
- *   - undefined / null
- */
-function safeGetStr(
-  value: LocalizedText | string | null | undefined,
-  language: "fr" | "en",
-  fallback = "",
-): string {
-  if (typeof value === "string") return value;
-  if (!value || typeof value !== "object") return fallback;
-
-  const preferred = typeof value[language] === "string" ? value[language].trim() : "";
-  const other = language === "fr"
-    ? (typeof value.en === "string" ? value.en.trim() : "")
-    : (typeof value.fr === "string" ? value.fr.trim() : "");
-
-  if (preferred) return preferred;
-  if (other) return other;
-  return fallback;
-}
-
-/**
  * Normalize a potentially-malformed definition from localStorage
  * into a safe CustomDefinition. Handles:
  *   - term as string → { fr: string, en: "" }
@@ -128,8 +104,6 @@ export function CommandPanel({
   const [selectedForDeletion, setSelectedForDeletion] = useState<Set<string>>(
     new Set(),
   );
-  const [isTranslatingDefs, setIsTranslatingDefs] = useState(false);
-
   /** Track which definition IDs have already been auto-translated. */
   const translatedDefIdsRef = useRef<Set<string>>(new Set());
 
@@ -175,7 +149,6 @@ export function CommandPanel({
     console.log("[CommandPanel] DEFINITION AUTO TRANSLATE START");
 
     const runTranslation = async () => {
-      setIsTranslatingDefs(true);
       let modified = false;
       const updated = defs.map((d) => ({ ...d }));
 
@@ -223,7 +196,6 @@ export function CommandPanel({
         }
       }
 
-      setIsTranslatingDefs(false);
     };
 
     runTranslation();
