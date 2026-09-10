@@ -20,7 +20,9 @@ import {
 import "@xyflow/react/dist/style.css";
 
 import type { BrainEdge, BrainNode, PillarId, RelationshipType } from "../types/brain";
-import { brainNodes, brainEdges } from "../data/graph";
+import { brainNodes } from "../data/graph";
+import snapshot from "../data/secondBrain.json";
+import { isPublicReadOnly } from "../config/deployment";
 import { useLanguage } from "../context/LanguageContext";
 import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
 import { pick, normalizeBrainNode } from "../utils/i18n";
@@ -58,6 +60,7 @@ interface BrainGraphProps {
   restoreHistoryState?: { nodes: any[]; edges: any[] } | null;
   focusNodeId?: string | null;
   onOpenSearch?: () => void;
+  isReadOnly?: boolean;
 }
 
 type LocalizedText = {
@@ -719,77 +722,25 @@ function BrainNodeComponent({
 
   /** Convert static brain data into editable React Flow nodes. */
   function createInitialFlowNodes(language: "fr" | "en"): Node[] {
-    return brainNodes.map((n) => ({
-      id: n.id,
-      type: "brain",
-      position: n.position,
-      data: {
-        node: n,
-        label: pick(n.title, language, "New Node"),
-        miniExplanation: n.miniExplanation ? pick(n.miniExplanation, language, "") : "",
-        nodeWidth: n.nodeWidth ?? 180,
-        nodeHeight: n.nodeHeight ?? 64,
-        miniExplanationWidth: n.miniExplanationWidth ?? 180,
-        miniExplanationHeight: n.miniExplanationHeight ?? 60,
-        summary: n.summary ? pick(n.summary, language, "") : "",
-        summaryWidth: n.summaryWidth ?? 520,
-        summaryHeight: n.summaryHeight ?? 120,
-        summaryOffsetX: n.summaryOffsetX ?? 0,
-        highlighted: false,
-        dimmed: false,
-      },
-      selected: false,
-      draggable: true,
-      deletable: !PROTECTED_NODE_IDS.has(n.id),
-    }));
+    return (snapshot.nodes as Node[]).map((node) =>
+      normalizeLoadedFlowNode(node, language),
+    );
   }
 
 /** Convert static brain edges into editable React Flow edges. */
 function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
-  return brainEdges.map((e) => {
-    const sourceNode = brainNodes.find((n) => n.id === e.source);
-    const color = sourceNode ? getNodeColor(sourceNode) : "#64748b";
-
-  const edgeColor = e.color ?? color;
-  
-  return {
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: e.label ? pick(e.label, language) : undefined,
-    animated: e.relationshipType === "uses",
-    style: {
-      stroke: edgeColor,
-      strokeWidth: 1.6,
-      strokeDasharray: e.lineStyle === "dashed" ? "8 6" : undefined,
-    },
-    markerEnd: {
-      type: MarkerType.ArrowClosed,
-      color: edgeColor,
-      width: 16,
-      height: 16,
-    },
-    labelStyle: { fill: e.labelColor ?? "#ffffff", fontSize: 11, textShadow: "0 0 8px rgba(255,255,255,0.2)" },
-    labelBgStyle: { fill: "transparent" },
-    labelBgPadding: [0, 0],
-    data: {
-      label: e.label,
-      relationshipType: e.relationshipType,
-      color: e.color,
-      lineStyle: e.lineStyle ?? "solid",
-      labelColor: e.labelColor ?? "#ffffff",
-    },
-    sourceHandle: e.sourceHandle ?? "bottom-source",
-    targetHandle: e.targetHandle ?? "top-target",
-    deletable: true,
-  };
-  });
+  return (snapshot.edges as unknown as Edge[]).map((edge) => ({
+    ...edge,
+    label: edge.data?.label
+      ? pick(edge.data.label as { fr: string; en: string }, language)
+      : edge.label,
+  }));
 }
 
 /** Load saved canvas from localStorage if it exists. */
-function loadSavedCanvas(language: "fr" | "en") {
+function loadSavedCanvas(language: "fr" | "en", useLocalStorage = true) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = useLocalStorage ? localStorage.getItem(STORAGE_KEY) : null;
     if (!raw) {
       return {
         nodes: createInitialFlowNodes(language),
@@ -977,15 +928,14 @@ export function BrainGraph({
   restoreHistoryState,
   focusNodeId,
   onOpenSearch,
+  isReadOnly = isPublicReadOnly,
 }: BrainGraphProps) {
   const { language } = useLanguage();
   const { fitView, zoomIn, zoomOut, screenToFlowPosition, getNode } = useReactFlow();
 
   const initialCanvas = useMemo(
-    () => loadSavedCanvas(language),
-    // We only want this to run once on first render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    () => loadSavedCanvas(language, !isReadOnly),
+    [isReadOnly, language],
   );
 
   const [nodes, setNodes, onNodesChange] = useNodesState(initialCanvas.nodes);
@@ -997,7 +947,7 @@ export function BrainGraph({
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
   const [, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
-  const isEditing = true; // Always in edit mode
+  const isEditing = !isReadOnly;
 
   /** Generate a unique node ID */
   const generateNodeId = useCallback(() => {
@@ -1101,6 +1051,8 @@ export function BrainGraph({
 
   /** Persist editable canvas to localStorage. */
   useEffect(() => {
+    if (isReadOnly) return;
+
     try {
       localStorage.setItem(
         STORAGE_KEY,
@@ -1142,7 +1094,7 @@ export function BrainGraph({
         }
       }
     }
-  }, [nodes, edges]);
+  }, [isReadOnly, nodes, edges]);
 
   /** Immediately notify parent of state changes for search and history tracking */
   const onHistoryStateChangeRef = useRef(onHistoryStateChange);
@@ -1885,6 +1837,8 @@ export function BrainGraph({
 
   /** Handle paste event to add image nodes */
   useEffect(() => {
+    if (!isEditing) return;
+
     const handlePaste = async (e: ClipboardEvent) => {
       console.log("PASTE EVENT DETECTED");
       
@@ -2011,7 +1965,7 @@ export function BrainGraph({
       window.removeEventListener('paste', handlePaste);
       document.removeEventListener('paste', handlePaste);
     };
-  }, [setNodes, screenToFlowPosition]);
+  }, [isEditing, setNodes, screenToFlowPosition]);
 
   const nodeTypes = useMemo(() => ({
     brain: memo((props: NodeProps) => <BrainNodeComponent 
@@ -2152,7 +2106,7 @@ export function BrainGraph({
         >
           <EdgeEditor
             edge={selectedBrainEdge}
-            isReadOnly={false}
+            isReadOnly={isReadOnly}
             onChange={(updatedEdge) => {
               updateEdgeInGraph(updatedEdge);
             }}

@@ -17,10 +17,15 @@ function migrateTerm(def: { term: string | LocalizedText }): LocalizedText {
  * Load all custom definitions from localStorage,
  * migrating old plain-string terms to bilingual objects.
  */
-export function loadCustomDefinitions(): CustomDefinition[] {
+export function loadCustomDefinitions(
+  fallback: CustomDefinition[] = [],
+  useLocalStorage = true,
+): CustomDefinition[] {
+  if (!useLocalStorage) return fallback;
+
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) return fallback;
     const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
     return parsed
       .map((item) => ({
@@ -28,7 +33,7 @@ export function loadCustomDefinitions(): CustomDefinition[] {
         term: migrateTerm(item as { term: string | LocalizedText }),
       })) as CustomDefinition[];
   } catch {
-    return [];
+    return fallback;
   }
 }
 

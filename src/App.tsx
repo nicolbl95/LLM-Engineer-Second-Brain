@@ -5,11 +5,16 @@ import { BrainGraph } from "./components/BrainGraph";
 import { ConceptDrawer } from "./components/ConceptDrawer";
 import { CommandPanel } from "./components/CommandPanel";
 import { SearchPanel } from "./components/SearchPanel";
-import type { BrainNode, PillarId } from "./types/brain";
+import type { BrainNode, CustomDefinition, PillarId } from "./types/brain";
+import snapshot from "./data/secondBrain.json";
+import { isPublicReadOnly } from "./config/deployment";
+import { loadCustomDefinitions } from "./utils/customDefinitions";
 import { getNodeById } from "./utils/graphHelpers";
 import { generateDefinition } from "./utils/definitions";
 import { useHistory } from "./hooks/useHistory";
 import "./styles.css";
+
+const snapshotDefinitions: CustomDefinition[] = snapshot.definitions;
 
 type CanvasState = {
   nodes: any[];
@@ -136,7 +141,11 @@ function AppContent() {
 
   const handleDefine = useCallback(
     (term: string) => {
-      const result = generateDefinition(term, language);
+      const result = generateDefinition(
+        term,
+        language,
+        loadCustomDefinitions(snapshotDefinitions, !isPublicReadOnly),
+      );
       setDefinitionResult(result);
     },
     [language],
@@ -181,55 +190,59 @@ function AppContent() {
   return (
     <div className="app">
       <div className="app__floating-toolbar">
-        <button
-          type="button"
-          className="history-button"
-          onClick={handleUndo}
-          disabled={!canUndo}
-          aria-label={language === "fr" ? "Retour en arrière" : "Undo"}
-          title={language === "fr" ? "Retour en arrière (Ctrl+Z)" : "Undo (Ctrl+Z)"}
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {!isPublicReadOnly && (
+          <button
+            type="button"
+            className="history-button"
+            onClick={handleUndo}
+            disabled={!canUndo}
+            aria-label={language === "fr" ? "Retour en arrière" : "Undo"}
+            title={language === "fr" ? "Retour en arrière (Ctrl+Z)" : "Undo (Ctrl+Z)"}
           >
-            <path d="M9 14L4 9L9 4" />
-            <path d="M4 9H16.5C18.99 9 21 11.01 21 13.5V13.5C21 15.99 18.99 18 16.5 18H15" />
-          </svg>
-        </button>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 14L4 9L9 4" />
+              <path d="M4 9H16.5C18.99 9 21 11.01 21 13.5V13.5C21 15.99 18.99 18 16.5 18H15" />
+            </svg>
+          </button>
+        )}
 
-        <button
-          type="button"
-          className="history-button"
-          onClick={handleRedo}
-          disabled={!canRedo}
-          aria-label={language === "fr" ? "Retour en avant" : "Redo"}
-          title={
-            language === "fr"
-              ? "Retour en avant (Ctrl+Shift+Z)"
-              : "Redo (Ctrl+Shift+Z)"
-          }
-        >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {!isPublicReadOnly && (
+          <button
+            type="button"
+            className="history-button"
+            onClick={handleRedo}
+            disabled={!canRedo}
+            aria-label={language === "fr" ? "Retour en avant" : "Redo"}
+            title={
+              language === "fr"
+                ? "Retour en avant (Ctrl+Shift+Z)"
+                : "Redo (Ctrl+Shift+Z)"
+            }
           >
-            <path d="M15 14L20 9L15 4" />
-            <path d="M20 9H7.5C5.01 9 3 11.01 3 13.5V13.5C3 15.99 5.01 18 7.5 18H9" />
-          </svg>
-        </button>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M15 14L20 9L15 4" />
+              <path d="M20 9H7.5C5.01 9 3 11.01 3 13.5V13.5C3 15.99 5.01 18 7.5 18H9" />
+            </svg>
+          </button>
+        )}
 
         <div className="lang-switcher">
           <button
@@ -280,6 +293,7 @@ function AppContent() {
             restoreHistoryState={historyState}
             focusNodeId={focusNodeId}
             onOpenSearch={handleOpenSearch}
+            isReadOnly={isPublicReadOnly}
           />
 
           {isSearchOpen && (
@@ -310,6 +324,7 @@ function AppContent() {
           }}
           onRelatedClick={(id) => selectNode(id)}
           onSave={handleNodeUpdate}
+          isReadOnly={isPublicReadOnly}
         />
       </main>
 
@@ -317,6 +332,8 @@ function AppContent() {
         definitionResult={definitionResult}
         onDefine={handleDefine}
         onClearDefinition={clearDefinitionHistory}
+        initialDefinitions={snapshotDefinitions}
+        isReadOnly={isPublicReadOnly}
       />
     </div>
   );

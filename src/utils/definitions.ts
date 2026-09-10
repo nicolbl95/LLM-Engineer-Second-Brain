@@ -47,7 +47,11 @@ function normalizeTerm(term: string): string {
  * Generate a beginner-friendly definition for a technical term.
  * ALWAYS returns full paragraphs, never short fragments.
  */
-export function generateDefinition(term: string, language: Language): DefinitionResult {
+export function generateDefinition(
+  term: string,
+  language: Language,
+  customDefinitions: CustomDefinition[] = loadCustomDefinitions(),
+): DefinitionResult {
   const trimmed = term.trim();
   if (!trimmed) {
     return {
@@ -64,7 +68,6 @@ export function generateDefinition(term: string, language: Language): Definition
   const normalizedTerm = normalizeTerm(trimmed);
   
   // Check for custom definition in localStorage
-  const customDefinitions = loadCustomDefinitions();
   const customDef = findCustomDefinition(normalizedTerm, customDefinitions);
   
   if (customDef) {

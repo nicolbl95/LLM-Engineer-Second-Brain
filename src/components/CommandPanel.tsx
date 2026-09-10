@@ -48,10 +48,15 @@ function normalizeDefinition(raw: Record<string, unknown>): CustomDefinition {
 }
 
 /** Load and normalize all saved definitions (defensive). */
-function loadNormalizedDefinitions(): CustomDefinition[] {
+function loadNormalizedDefinitions(
+  fallback: CustomDefinition[] = [],
+  useLocalStorage = true,
+): CustomDefinition[] {
+  if (!useLocalStorage) return fallback;
+
   try {
     const raw = localStorage.getItem("custom-definitions");
-    if (!raw) return [];
+    if (!raw) return fallback;
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed.map((item: unknown) => normalizeDefinition(item as Record<string, unknown>));
@@ -74,6 +79,8 @@ interface CommandPanelProps {
   definitionResult?: DefinitionResult | null;
   onDefine?: (term: string) => void;
   onClearDefinition?: () => void;
+  initialDefinitions?: CustomDefinition[];
+  isReadOnly?: boolean;
 }
 
 type DefinitionTab = "define" | "add" | "saved";
@@ -85,6 +92,8 @@ export function CommandPanel({
   definitionResult,
   onDefine,
   onClearDefinition,
+  initialDefinitions = [],
+  isReadOnly = false,
 }: CommandPanelProps) {
   const { language } = useLanguage();
 
@@ -109,22 +118,24 @@ export function CommandPanel({
 
   useEffect(() => {
     try {
-      setSavedDefinitions(loadNormalizedDefinitions());
+      setSavedDefinitions(
+        loadNormalizedDefinitions(initialDefinitions, !isReadOnly),
+      );
     } catch (err) {
       console.error("[CommandPanel] Failed to load saved definitions", err);
     }
-  }, [saveSuccess]);
+  }, [initialDefinitions, isReadOnly, saveSuccess]);
 
   /**
    * Auto-translate missing English fields for saved definitions
    * when the user switches to English.
    */
   useEffect(() => {
-    if (language !== "en") return;
+    if (language !== "en" || isReadOnly) return;
 
     let defs: CustomDefinition[];
     try {
-      defs = loadNormalizedDefinitions();
+      defs = loadNormalizedDefinitions(initialDefinitions, true);
     } catch (err) {
       console.error("[CommandPanel] Auto-translate load failed", err);
       return;
@@ -199,7 +210,7 @@ export function CommandPanel({
     };
 
     runTranslation();
-  }, [language]);
+  }, [initialDefinitions, isReadOnly, language]);
 
   const handleSubmit = () => {
     const trimmed = input.trim();
@@ -356,19 +367,21 @@ ${whyItMatters}`;
           {language === "fr" ? "Définition" : "Definition"}
         </button>
 
-        <button
-          type="button"
-          className={`command-tab ${
-            activeTab === "add" ? "command-tab--active" : ""
-          }`}
-          onClick={() => setActiveTab("add")}
-          aria-label={
-            language === "fr" ? "Ajouter une définition" : "Add definition"
-          }
-        >
-          <Plus size={16} />
-          {language === "fr" ? "Ajouter une définition" : "Add definition"}
-        </button>
+        {!isReadOnly && (
+          <button
+            type="button"
+            className={`command-tab ${
+              activeTab === "add" ? "command-tab--active" : ""
+            }`}
+            onClick={() => setActiveTab("add")}
+            aria-label={
+              language === "fr" ? "Ajouter une définition" : "Add definition"
+            }
+          >
+            <Plus size={16} />
+            {language === "fr" ? "Ajouter une définition" : "Add definition"}
+          </button>
+        )}
 
         <button
           type="button"
@@ -638,26 +651,28 @@ ${whyItMatters}`;
               </h3>
 
               <div className="saved-definitions__actions">
-                <button
-                  type="button"
-                  className={`saved-definitions__delete-btn ${
-                    deleteMode ? "saved-definitions__delete-btn--active" : ""
-                  }`}
-                  onClick={handleDeleteClick}
-                  disabled={savedDefinitions.length === 0}
-                  aria-label={
-                    language === "fr"
-                      ? "Supprimer des définitions"
-                      : "Delete definitions"
-                  }
-                  title={
-                    language === "fr"
-                      ? "Supprimer des définitions"
-                      : "Delete definitions"
-                  }
-                >
-                  <Trash2 size={16} />
-                </button>
+                {!isReadOnly && (
+                  <button
+                    type="button"
+                    className={`saved-definitions__delete-btn ${
+                      deleteMode ? "saved-definitions__delete-btn--active" : ""
+                    }`}
+                    onClick={handleDeleteClick}
+                    disabled={savedDefinitions.length === 0}
+                    aria-label={
+                      language === "fr"
+                        ? "Supprimer des définitions"
+                        : "Delete definitions"
+                    }
+                    title={
+                      language === "fr"
+                        ? "Supprimer des définitions"
+                        : "Delete definitions"
+                    }
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
 
                 <button
                   type="button"
