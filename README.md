@@ -36,12 +36,6 @@ Ce Second Brain organise visuellement les principales couches nécessaires à la
 
 Chaque nœud contient une explication du concept, tandis que les liens donnent un contexte sur les relations entre les sujets. Le projet est conçu comme un système d'apprentissage technique évolutif et comme un portfolio d'ingénierie, sans prétendre que son auteur est expert de chacun des domaines présentés.
 
-## Écosystème LLM couvert
-
-Ces technologies et concepts sont documentés dans le graphe de connaissances. Leur présence ici ne signifie pas nécessairement qu'ils sont des dépendances techniques de l'application Second Brain.
-
-Le graphe couvre notamment le prompt et le context engineering, le RAG et les bases vectorielles, les architectures d'agents, l'adaptation de modèles, l'inférence et le déploiement, l'évaluation, l'observabilité et la sécurité LLM. Des technologies représentatives incluent LangChain, LangGraph, LlamaIndex, ChromaDB, Qdrant, Pinecone, Hugging Face, vLLM, SGLang, Ollama, FastAPI, Docker, DeepEval et Langfuse.
-
 ## Ce que vous pouvez explorer
 
 ### Prompt & Context Engineering
@@ -188,4 +182,4 @@ Le déploiement GitHub Pages est déclenché automatiquement par un push sur `ma
 
 **Nicolas DAVOINE**
 
-Software Engineer — développement de compétences en LLM Engineering et systèmes d'IA appliquée.
+**Ingénieur LLM — systèmes d’IA générative.**
