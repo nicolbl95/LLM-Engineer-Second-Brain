@@ -1,39 +1,191 @@
 # LLM Engineer Second Brain
 
-An interactive knowledge graph for exploring the tools, frameworks, and concepts that make up the modern LLM engineering ecosystem.
+> Un graphe de connaissances interactif qui structure les concepts, architectures, outils et compromis d'ingénierie des systèmes LLM modernes.
 
-## Built With
+[🚀 Explorer le Second Brain](https://nicolbl95.github.io/LLM-Engineer-Second-Brain/)
 
-The technologies used to build this interface:
+> Démo publique en lecture seule — naviguez dans le graphe, zoomez, recherchez un concept et cliquez sur un nœud pour afficher son explication.
 
-[![React](https://img.shields.io/badge/React-19.2.7?style=for-the-badge&logo=react&logoColor=61DAFB&labelColor=20232A&color=20232A)](https://react.dev/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0.2?style=for-the-badge&logo=typescript&logoColor=white&labelColor=3178C6&color=3178C6)](https://www.typescriptlang.org/)
-[![Vite](https://img.shields.io/badge/Vite-8.1.1?style=for-the-badge&logo=vite&logoColor=white&labelColor=646CFF&color=646CFF)](https://vite.dev/)
-[![XYFlow / React Flow](https://img.shields.io/badge/XYFlow%20%2F%20React%20Flow-12.11.1?style=for-the-badge&logo=react&logoColor=white&labelColor=111827&color=111827)](https://xyflow.com/)
+## Stack de l'application
 
-## LLM Ecosystem Covered
+Les technologies réellement utilisées pour construire l'interface :
 
-Tools and technologies documented inside the Second Brain knowledge graph — not dependencies of the React application:
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vite.dev/)
+[![XYFlow](https://img.shields.io/badge/XYFlow-React_Flow-111827?style=for-the-badge)](https://xyflow.com/)
 
-[![LangChain](https://img.shields.io/badge/LangChain-Covered?style=for-the-badge&logo=chainlink&logoColor=white&labelColor=1C3C3C&color=1C3C3C)](https://www.langchain.com/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-Covered?style=for-the-badge&logo=graphql&logoColor=white&labelColor=E10098&color=E10098)](https://www.langchain.com/langgraph)
-[![LlamaIndex](https://img.shields.io/badge/LlamaIndex-Covered?style=for-the-badge&logoColor=white&labelColor=6B4EFF&color=6B4EFF)](https://www.llamaindex.ai/)
-[![ChromaDB](https://img.shields.io/badge/ChromaDB-Covered?style=for-the-badge&logoColor=white&labelColor=F97316&color=F97316)](https://www.trychroma.com/)
-[![Qdrant](https://img.shields.io/badge/Qdrant-Covered?style=for-the-badge&logoColor=white&labelColor=DC2626&color=DC2626)](https://qdrant.tech/)
-[![Pinecone](https://img.shields.io/badge/Pinecone-Covered?style=for-the-badge&logoColor=white&labelColor=2DD4BF&color=2DD4BF)](https://www.pinecone.io/)
-[![Sentence Transformers](https://img.shields.io/badge/Sentence%20Transformers-Covered?style=for-the-badge&logoColor=white&labelColor=2563EB&color=2563EB)](https://www.sbert.net/)
-[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Covered?style=for-the-badge&logo=huggingface&logoColor=black&labelColor=FFD21E&color=FFD21E)](https://huggingface.co/)
-[![vLLM](https://img.shields.io/badge/vLLM-Covered?style=for-the-badge&logoColor=white&labelColor=4F46E5&color=4F46E5)](https://vllm.ai/)
-[![SGLang](https://img.shields.io/badge/SGLang-Covered?style=for-the-badge&logoColor=white&labelColor=0F766E&color=0F766E)](https://sgl-project.github.io/)
-[![Ollama](https://img.shields.io/badge/Ollama-Covered?style=for-the-badge&logo=ollama&logoColor=white&labelColor=111111&color=111111)](https://ollama.com/)
-[![Groq API](https://img.shields.io/badge/Groq%20API-Covered?style=for-the-badge&logoColor=white&labelColor=F55036&color=F55036)](https://groq.com/)
-[![Anthropic API](https://img.shields.io/badge/Anthropic%20API-Covered?style=for-the-badge&logo=anthropic&logoColor=white&labelColor=191919&color=191919)](https://www.anthropic.com/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-Covered?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=009688&color=009688)](https://fastapi.tiangolo.com/)
-[![Docker](https://img.shields.io/badge/Docker-Covered?style=for-the-badge&logo=docker&logoColor=white&labelColor=2496ED&color=2496ED)](https://www.docker.com/)
-[![DeepEval](https://img.shields.io/badge/DeepEval-Covered?style=for-the-badge&logoColor=white&labelColor=7C3AED&color=7C3AED)](https://deepeval.com/)
-[![Langfuse](https://img.shields.io/badge/Langfuse-Covered?style=for-the-badge&logoColor=white&labelColor=FF6B35&color=FF6B35)](https://langfuse.com/)
-[![Weights & Biases](https://img.shields.io/badge/Weights%20%26%20Biases-Covered?style=for-the-badge&logo=weightsandbiases&logoColor=white&labelColor=FFBE00&color=FFBE00)](https://wandb.ai/)
+Le déploiement public est assuré séparément par GitHub Pages via GitHub Actions. GitHub Pages n'est pas une technologie utilisée pour développer l'interface.
 
----
+## Pourquoi ce projet ?
 
-**Author:** Nicolas DAVOINE
+Le LLM Engineering ne se limite pas aux appels d'API ou au prompt engineering. Construire un système LLM fiable demande de comprendre plusieurs couches techniques, leurs contraintes et les compromis entre qualité, coût, latence, sécurité et maintenabilité.
+
+Ce Second Brain organise visuellement les principales couches nécessaires à la construction de systèmes LLM :
+
+- architecture des modèles ;
+- prompting et context engineering ;
+- RAG ;
+- agents ;
+- entraînement et adaptation ;
+- serving et inference ;
+- optimisation GPU ;
+- évaluation ;
+- observabilité ;
+- sécurité.
+
+Chaque nœud contient une explication du concept, tandis que les liens donnent un contexte sur les relations entre les sujets. Le projet est conçu comme un système d'apprentissage technique évolutif et comme un portfolio d'ingénierie, sans prétendre que son auteur est expert de chacun des domaines présentés.
+
+## Écosystème LLM couvert
+
+Ces technologies et concepts sont documentés dans le graphe de connaissances. Leur présence ici ne signifie pas nécessairement qu'ils sont des dépendances techniques de l'application Second Brain.
+
+Le graphe couvre notamment le prompt et le context engineering, le RAG et les bases vectorielles, les architectures d'agents, l'adaptation de modèles, l'inférence et le déploiement, l'évaluation, l'observabilité et la sécurité LLM. Des technologies représentatives incluent LangChain, LangGraph, LlamaIndex, ChromaDB, Qdrant, Pinecone, Hugging Face, vLLM, SGLang, Ollama, FastAPI, Docker, DeepEval et Langfuse.
+
+## Ce que vous pouvez explorer
+
+### Prompt & Context Engineering
+
+- anatomie des prompts ;
+- few-shot ;
+- prompt chaining ;
+- Chain-of-Thought ;
+- Tree of Thoughts ;
+- sorties structurées ;
+- Prompt Ops.
+
+### RAG
+
+- ingestion ;
+- chunking ;
+- embeddings ;
+- vector databases ;
+- ChromaDB ;
+- Qdrant ;
+- Pinecone ;
+- reranking ;
+- query rewriting ;
+- hybrid search ;
+- Parent-Child Retrieval ;
+- Agentic RAG.
+
+### Agents
+
+- ReAct ;
+- Plan-and-Execute ;
+- multi-agents ;
+- MCP ;
+- LangChain ;
+- LangGraph.
+
+### Entraînement & adaptation
+
+- pre-training ;
+- SFT ;
+- RLHF ;
+- DPO ;
+- Reward Models ;
+- PEFT / LoRA ;
+- QLoRA ;
+- distillation ;
+- synthetic data ;
+- overfitting.
+
+### Inference & déploiement
+
+- vLLM ;
+- SGLang ;
+- KV Cache ;
+- Continuous Batching ;
+- PagedAttention ;
+- Prefix Caching ;
+- quantification ;
+- sparsification ;
+- speculative decoding ;
+- dimensionnement GPU ;
+- self-hosting vs API managée.
+
+### Évaluation & observabilité
+
+- benchmarks ;
+- Golden Datasets ;
+- LLM-as-a-Judge ;
+- DeepEval ;
+- tracing ;
+- Langfuse ;
+- SLO ;
+- TTFT ;
+- throughput ;
+- drift ;
+- Human-in-the-Loop.
+
+### Sécurité LLM
+
+- Prompt Injection ;
+- Indirect Prompt Injection ;
+- Guardrails ;
+- Sensitive Information Disclosure ;
+- Excessive Agency ;
+- Least Privilege ;
+- Red Teaming.
+
+### Fondamentaux LLM
+
+- tokenization ;
+- embeddings ;
+- tensors ;
+- architecture Transformer ;
+- Mixture of Experts.
+
+## Navigation
+
+Le visiteur peut :
+
+- déplacer le graphe ;
+- zoomer ;
+- rechercher un concept ;
+- cliquer sur un nœud ;
+- lire son explication détaillée ;
+- suivre les relations entre concepts.
+
+La recherche est accessible depuis l'interface et via `Ctrl+F` (ou `⌘+F` sur macOS). La sélection d'un nœud ouvre une vue détaillée avec ses explications et met en évidence les concepts associés.
+
+## Architecture de l'application
+
+```text
+Knowledge Data
+      ↓
+React + TypeScript
+      ↓
+XYFlow / React Flow
+      ↓
+Graphe interactif
+      ↓
+Navigation / Recherche / Vue détaillée
+```
+
+Les données du graphe sont embarquées dans l'application et les fonctionnalités de navigation s'exécutent côté client. Aucun backend LLM n'est nécessaire pour consulter la démo publique. Les modifications du canvas sont conservées localement dans le navigateur.
+
+## Lancer le projet localement
+
+```bash
+git clone https://github.com/nicolbl95/LLM-Engineer-Second-Brain.git
+cd LLM-Engineer-Second-Brain
+npm install
+npm run dev
+```
+
+Pour générer puis servir la version de production localement :
+
+```bash
+npm run build
+npm run preview
+```
+
+Le déploiement GitHub Pages est déclenché automatiquement par un push sur `main` via [le workflow GitHub Actions](.github/workflows/deploy.yml).
+
+## Auteur
+
+**Nicolas DAVOINE**
+
+Software Engineer — développement de compétences en LLM Engineering et systèmes d'IA appliquée.
