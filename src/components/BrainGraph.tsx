@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css";
 import type { BrainEdge, BrainNode, PillarId, RelationshipType } from "../types/brain";
 import { brainNodes } from "../data/graph";
 import snapshot from "../data/secondBrain.json";
+import publicCanvas from "../data/publicCanvas.json";
 import { isPublicReadOnly } from "../config/deployment";
 import { useLanguage } from "../context/LanguageContext";
 import { getNodeColor, nodeMatchesFilter } from "../utils/graphHelpers";
@@ -739,13 +740,33 @@ function createInitialFlowEdges(language: "fr" | "en"): Edge[] {
 
 /** Load saved canvas from localStorage if it exists. */
 function loadSavedCanvas(language: "fr" | "en", useLocalStorage = true) {
+  const loadPublicCanvas = () => {
+    const publicNodes = (publicCanvas as { nodes?: unknown }).nodes;
+    const publicEdges = (publicCanvas as { edges?: unknown }).edges;
+
+    if (
+      Array.isArray(publicNodes) &&
+      publicNodes.length > 0 &&
+      Array.isArray(publicEdges)
+    ) {
+      return {
+        nodes: (publicNodes as Node[]).map((node) =>
+          normalizeLoadedFlowNode(node, language),
+        ),
+        edges: publicEdges as Edge[],
+      };
+    }
+
+    return {
+      nodes: createInitialFlowNodes(language),
+      edges: createInitialFlowEdges(language),
+    };
+  };
+
   try {
     const raw = useLocalStorage ? localStorage.getItem(STORAGE_KEY) : null;
     if (!raw) {
-      return {
-        nodes: createInitialFlowNodes(language),
-        edges: createInitialFlowEdges(language),
-      };
+      return loadPublicCanvas();
     }
 
     const parsed = JSON.parse(raw) as {
@@ -754,10 +775,7 @@ function loadSavedCanvas(language: "fr" | "en", useLocalStorage = true) {
     };
 
     if (!parsed.nodes || !parsed.edges) {
-      return {
-        nodes: createInitialFlowNodes(language),
-        edges: createInitialFlowEdges(language),
-      };
+      return loadPublicCanvas();
     }
 
     return {
@@ -765,10 +783,7 @@ function loadSavedCanvas(language: "fr" | "en", useLocalStorage = true) {
       edges: parsed.edges,
     };
   } catch {
-    return {
-      nodes: createInitialFlowNodes(language),
-      edges: createInitialFlowEdges(language),
-    };
+    return loadPublicCanvas();
   }
 }
 
@@ -947,6 +962,7 @@ export function BrainGraph({
   const [connectionSource, setConnectionSource] = useState<string | null>(null);
   const [, setMousePosition] = useState<{ x: number; y: number } | null>(null);
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [publicCopyFeedback, setPublicCopyFeedback] = useState(false);
   const isEditing = !isReadOnly;
 
   /** Generate a unique node ID */
@@ -1536,6 +1552,22 @@ export function BrainGraph({
     }
   }, [nodes, edges, language]);
 
+  /** Copy the complete current canvas (nodes + edges) as formatted JSON. */
+  const handleExportPublicGraph = useCallback(async () => {
+    const publicGraph = {
+      nodes,
+      edges,
+    };
+
+    const json = JSON.stringify(publicGraph, null, 2);
+    const success = await copyToClipboard(json);
+
+    if (success) {
+      setPublicCopyFeedback(true);
+      setTimeout(() => setPublicCopyFeedback(false), 2000);
+    }
+  }, [nodes, edges]);
+
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId) ?? null,
     [edges, selectedEdgeId],
@@ -2085,6 +2117,21 @@ export function BrainGraph({
           <span className="export-button__feedback">
             {language === "fr" ? "Copié !" : "Copied!"}
           </span>
+        )}
+      </button>
+
+      {/* Export public graph - bottom right, above the tree export controls */}
+      <button
+        type="button"
+        onClick={handleExportPublicGraph}
+        className="export-button export-button--public"
+        aria-label="Export public graph"
+        title="Copy the complete canvas JSON to the clipboard"
+      >
+        <span className="export-button__letter">P</span>
+        <span>Export public graph</span>
+        {publicCopyFeedback && (
+          <span className="export-button__feedback">Public graph copied</span>
         )}
       </button>
 

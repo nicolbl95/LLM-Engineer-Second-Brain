@@ -2154,6 +2154,12 @@ body {
   bottom: 68px;
 }
 
+/* Public graph export button - positioned above the tree export controls */
+.export-button--public {
+  bottom: 120px;
+  max-width: calc(100% - 32px);
+}
+
 .export-button:hover {
   background: rgba(30, 41, 55, 0.95);
   border-color: rgba(129, 140, 248, 0.4);
